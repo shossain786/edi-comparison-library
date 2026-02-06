@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Booking>
+    <BGM>
+        <DocumentCode>340</DocumentCode>
+        <BookingNumber>BOOKING123</BookingNumber>
+    </BGM>
+    <DateTime>
+        <Qualifier>137</Qualifier>
+        <Value>20240207</Value>
+        <Format>102</Format>
+    </DateTime>
+    <Party type="consignor">
+        <Qualifier>CZ</Qualifier>
+        <ID>SHIPPER001</ID>
+    </Party>
+    <Party type="consignee">
+        <Qualifier>CN</Qualifier>
+        <ID>CONSIGNEE001</ID>
+    </Party>
+    <Container>
+        <Number>CONT123456</Number>
+        <Type>22G1</Type>
+    </Container>
+</Booking>
