@@ -2,44 +2,18 @@
 
 A lightweight, loosely-coupled library for comparing EDIFACT, ANSI X12, and XML files in test automation frameworks.
 
-## 🎯 Features
+## Features
 
-- ✅ **Multi-format Support**: EDIFACT, ANSI X12, and XML
-- ✅ **Rule-based Validation**: Define comparison rules via YAML config + custom code
-- ✅ **Flexible Validation**: Exact match, pattern match, date format, custom business rules
-- ✅ **Detailed Reporting**: HTML and JSON reports with line-by-line differences
-- ✅ **Loosely Coupled**: Clean interfaces, easy to integrate with any test framework
-- ✅ **Minimal Dependencies**: Only Jackson and SnakeYAML
+- **Multi-format Support**: EDIFACT, ANSI X12, and XML
+- **Rule-based Validation**: Define comparison rules via YAML config
+- **Flexible Validation**: Exact match, pattern match, date format, exists check
+- **HTML Reports**: Beautiful, detailed reports with differences highlighted
+- **Configurable**: External configuration file for report paths and settings
+- **Loosely Coupled**: Easy to integrate with any test framework
 
-## 📦 Project Structure
+## Quick Start
 
-```
-edi-comparison-library/
-├── pom.xml
-├── src/
-│   ├── main/
-│   │   ├── java/com/edi/comparison/
-│   │   │   ├── core/              # Main API facade
-│   │   │   ├── parser/            # File parsers (EDIFACT, ANSI, XML)
-│   │   │   ├── rule/              # Rule engine & config loader
-│   │   │   ├── validator/         # Field validators
-│   │   │   ├── report/            # Report generators
-│   │   │   ├── model/             # Domain models
-│   │   │   └── exception/         # Custom exceptions
-│   │   └── resources/
-│   │       ├── rules/             # Default rule templates
-│   │       └── templates/         # HTML report templates
-│   └── test/
-│       ├── java/                  # Unit tests
-│       └── resources/
-│           ├── samples/           # Sample EDI/XML files
-│           └── rules/             # Test rule configs
-└── README.md
-```
-
-## 🚀 Quick Start
-
-### 1. Add to Your Project
+### 1. Add Dependency
 
 ```xml
 <dependency>
@@ -49,87 +23,240 @@ edi-comparison-library/
 </dependency>
 ```
 
-### 2. Basic Usage
+### 2. Create Configuration File
 
-```java
-// Simple comparison
-FileComparator comparator = FileComparator.builder()
-    .withRuleFile("rules/iftmbf-comparison.yaml")
-    .withTestDataContext(testDataMap)
-    .build();
+Create `edi-comparison.properties` in your project's `src/test/resources/`:
 
-ComparisonResult result = comparator.compare(
-    inboundFile, 
-    outboundFile, 
-    FileFormat.EDIFACT
-);
+```properties
+# Report Configuration
+report.base.dir=target/reports
+report.filename.pattern=report_{timestamp}.html
 
-// Check results
-if (result.hasDifferences()) {
-    result.generateHtmlReport("reports/comparison-report.html");
-    System.out.println(result.getSummary());
-}
+# Comparison Configuration
+comparison.fail.on.first.error=false
+comparison.case.sensitive=true
 ```
 
-### 3. Define Rules (YAML)
+### 3. Create Verification Template (YAML)
+
+Create your template in `src/test/resources/rules/my-template.yaml`:
 
 ```yaml
-message_type: IFTMBF
+message_type: IFTMBC
+description: Booking confirmation verification
+
 rules:
   - segment: BGM
+    required: true
     fields:
-      - position: C002.1001
+      - position: BGM.0001
+        name: messageFunction
         validation: exact_match
-        source: testData.bgmCode
-  
+        expected_value: "620"
+
+      - position: BGM.0002
+        name: bookingReference
+        validation: pattern_match
+        pattern: "^BK[0-9]+$"
+
   - segment: NAD
-    multiple: true
-    order_matters: false
+    required: true
+    multiple_occurrences: true
+    fields:
+      - position: NAD.0001
+        name: partyQualifier
+        validation: exists
+
+  - segment: EQD
+    required: true
+    multiple_occurrences: true
+    fields:
+      - position: EQD.0001
+        validation: exact_match
+        expected_value: "CN"
+
+      - position: EQD.0002
+        name: containerNumber
+        validation: pattern_match
+        pattern: "^[A-Z]{4}[0-9]{7}$"
 ```
 
-## 🔧 Integration with Selenium Framework
+### 4. Write Your Test
 
 ```java
-@Test
-public void testBookingOutbound() {
-    // Drop inbound file
-    dropInboundFile(inboundData);
-    
-    // Wait for outbound generation
-    String outboundFile = waitForOutbound();
-    
-    // Compare
-    ComparisonResult result = comparator.compare(
-        inboundFile, 
-        outboundFile, 
-        FileFormat.EDIFACT
-    );
-    
-    // Assert
-    Assert.assertTrue(result.isSuccess(), 
-        "Outbound validation failed: " + result.getSummary());
+import com.edi.comparison.config.ComparisonConfig;
+import com.edi.comparison.core.*;
+import com.edi.comparison.parser.EdifactParser;
+import com.edi.comparison.report.HtmlReportGenerator;
+import com.edi.comparison.rule.RuleLoader;
+import com.edi.comparison.rule.RuleSet;
+
+public class MyVerificationTest {
+
+    @Test
+    void testOutboundVerification() throws Exception {
+        // 1. Load configuration
+        ComparisonConfig config = ComparisonConfig.load();
+
+        // 2. Load template
+        RuleLoader ruleLoader = new RuleLoader();
+        RuleSet template = ruleLoader.loadFromResource("rules/my-template.yaml");
+
+        // 3. Parse outbound file
+        EdifactParser parser = new EdifactParser();
+        Message outbound = parser.parse(outboundFileContent);
+
+        // 4. Setup context with test data
+        Map<String, Object> testData = new HashMap<>();
+        testData.put("bookingNumber", "BK123456");
+
+        ComparisonContext context = ComparisonContext.builder()
+                .testData(testData)
+                .build();
+
+        // 5. Run verification
+        ComparisonEngine engine = new ComparisonEngine(template, context);
+        ComparisonResult result = engine.compare(null, outbound);
+
+        // 6. Generate HTML report
+        HtmlReportGenerator reportGenerator = new HtmlReportGenerator();
+        String reportPath = reportGenerator.generate(
+            result,
+            config.getReportBaseDir(),  // From properties file
+            "my-scenario"               // Scenario folder name
+        );
+
+        // 7. Assert
+        assertTrue(result.isSuccess(),
+            "Verification failed. Report: " + reportPath);
+    }
 }
 ```
 
-## 📋 Next Steps
+## Configuration
 
-This is **Step 1** - Project Setup. We'll build incrementally:
+### Properties File Location
 
-- **Step 2**: Core domain models (Segment, Field, Message)
-- **Step 3**: Parser abstraction layer
-- **Step 4**: Rule engine & config loader
-- **Step 5**: Comparison engine
-- **Step 6**: Reporting system
-- **Step 7**: Custom validators framework
+Create `edi-comparison.properties` in your project:
 
-## 🏗️ Design Principles
+| Location | When Used |
+|----------|-----------|
+| `src/test/resources/edi-comparison.properties` | For test execution |
+| `src/main/resources/edi-comparison.properties` | For runtime usage |
+| External path via `ComparisonConfig.load("/path/to/file")` | Custom location |
 
-1. **Loose Coupling**: Each layer depends only on interfaces
-2. **Open-Closed**: Easy to extend without modifying core
-3. **Single Responsibility**: Each class has one clear purpose
-4. **Dependency Injection**: Testable and flexible
-5. **Fail-Safe**: Collect all errors, don't fail fast
+### Available Properties
 
-## 📝 License
+```properties
+# Base directory for all reports
+report.base.dir=target/reports
+
+# Filename pattern ({timestamp} is replaced with yyyyMMdd_HHmmss)
+report.filename.pattern=report_{timestamp}.html
+
+# Stop on first error or collect all
+comparison.fail.on.first.error=false
+
+# Case sensitive string comparison
+comparison.case.sensitive=true
+```
+
+### Loading Configuration
+
+```java
+// Load from classpath (edi-comparison.properties)
+ComparisonConfig config = ComparisonConfig.load();
+
+// Load from external file
+ComparisonConfig config = ComparisonConfig.load("C:/config/my-config.properties");
+
+// Access properties
+String reportDir = config.getReportBaseDir();
+boolean caseSensitive = config.isCaseSensitive();
+```
+
+## Report Generation
+
+### Report Methods
+
+```java
+HtmlReportGenerator generator = new HtmlReportGenerator();
+
+// Option 1: Direct path (creates directories automatically)
+generator.generate(result, "target/reports/my-report.html");
+
+// Option 2: Base dir + scenario (auto-generates timestamped filename)
+generator.generate(result, "target/reports", "booking-test");
+// Creates: target/reports/booking-test/report_20260207_123456.html
+
+// Option 3: Base dir + scenario + custom filename
+generator.generate(result, "target/reports", "booking-test", "verification-result.html");
+// Creates: target/reports/booking-test/verification-result.html
+```
+
+### Report Structure
+
+```
+target/reports/
+├── booking-confirmation/
+│   ├── report_20260207_100000.html
+│   └── report_20260207_110000.html
+├── booking-cancellation/
+│   └── report_20260207_120000.html
+└── shipment-advice/
+    └── failure-report.html
+```
+
+## Validation Types
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `exact_match` | Exact string comparison | `expected_value: "620"` |
+| `pattern_match` | Regex pattern matching | `pattern: "^[A-Z]{4}[0-9]{7}$"` |
+| `exists` | Field must be present | Just checks presence |
+| `date_format` | Validates date format | Uses format code field |
+
+## Template YAML Reference
+
+```yaml
+message_type: IFTMBC
+description: Template description
+
+rules:
+  - segment: BGM                    # Segment tag
+    required: true                  # Is segment required?
+    multiple_occurrences: false     # Can appear multiple times?
+    order_matters: true             # Must maintain order?
+    fields:
+      - position: BGM.0001          # Field position
+        name: fieldName             # Human-readable name
+        validation: exact_match     # Validation type
+        expected_value: "620"       # Expected literal value
+        # OR
+        source: testData.myKey      # Get expected from test data
+        # OR
+        pattern: "^[A-Z]+$"         # Regex pattern
+        required: true              # Is field required?
+```
+
+## Project Structure
+
+```
+your-project/
+├── src/test/
+│   ├── java/
+│   │   └── MyVerificationTest.java
+│   └── resources/
+│       ├── edi-comparison.properties    ← Configuration
+│       ├── rules/
+│       │   └── my-template.yaml         ← Verification templates
+│       └── samples/
+│           └── outbound-files/          ← Test data
+└── target/reports/                      ← Generated reports
+    └── scenario-name/
+        └── report_20260207_123456.html
+```
+
+## License
 
 Internal use - Your organization

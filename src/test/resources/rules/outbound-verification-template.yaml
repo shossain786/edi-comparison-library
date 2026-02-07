@@ -1,0 +1,70 @@
+message_type: IFTMBC
+description: Template for verifying booking confirmation outbound
+
+rules:
+  - segment: BGM
+    required: true
+    fields:
+      - position: BGM.0001
+        name: messageFunction
+        validation: exact_match
+        expected_value: "620"
+
+      - position: BGM.0002
+        name: bookingReference
+        validation: pattern_match
+        pattern: "^BK[0-9]+$"
+
+  - segment: DTM
+    required: true
+    multiple_occurrences: true
+    fields:
+      - position: DTM.C001.0001
+        name: dateQualifier
+        validation: exists
+
+  - segment: RFF
+    required: true
+    multiple_occurrences: true
+    fields:
+      - position: RFF.C001.0001
+        name: referenceQualifier
+        validation: exists
+
+  - segment: NAD
+    required: true
+    multiple_occurrences: true
+    order_matters: false
+    fields:
+      - position: NAD.0001
+        name: partyQualifier
+        validation: exists
+
+  - segment: EQD
+    required: true
+    multiple_occurrences: true
+    fields:
+      - position: EQD.0001
+        name: equipmentQualifier
+        validation: exact_match
+        expected_value: "CN"
+
+      - position: EQD.0002
+        name: containerNumber
+        validation: pattern_match
+        pattern: "^[A-Z]{4}[0-9]{7}$"
+
+  - segment: SEL
+    multiple_occurrences: true
+    fields:
+      - position: SEL.0001
+        name: sealNumber
+        validation: exists
+
+  - segment: CNT
+    required: true
+    fields:
+      - position: CNT.C001.0001
+        name: controlQualifier
+        validation: exact_match
+        expected_value: "16"

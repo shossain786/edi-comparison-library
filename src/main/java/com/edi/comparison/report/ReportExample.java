@@ -89,14 +89,14 @@ public class ReportExample {
         FieldRule bgmCode = new FieldRule();
         bgmCode.setPosition("BGM.0001");
         bgmCode.setName("documentCode");
-        bgmCode.setValidation(FieldRule.ValidationType.EXACT_MATCH);
+        bgmCode.setValidationType(FieldRule.ValidationType.EXACT_MATCH);
         bgmCode.setSource("testData.bgmCode");
         bgmRule.addFieldRule(bgmCode);
 
         FieldRule bookingNum = new FieldRule();
         bookingNum.setPosition("BGM.0002");
         bookingNum.setName("bookingNumber");
-        bookingNum.setValidation(FieldRule.ValidationType.EXACT_MATCH);
+        bookingNum.setValidationType(FieldRule.ValidationType.EXACT_MATCH);
         bookingNum.setSource("testData.bookingNumber");
         bgmRule.addFieldRule(bookingNum);
 
@@ -109,7 +109,7 @@ public class ReportExample {
         FieldRule containerNum = new FieldRule();
         containerNum.setPosition("EQD.C237.8260");
         containerNum.setName("containerNumber");
-        containerNum.setValidation(FieldRule.ValidationType.PATTERN_MATCH);
+        containerNum.setValidationType(FieldRule.ValidationType.PATTERN_MATCH);
         containerNum.setPattern("^[A-Z]{4}[0-9]{7}$");
         eqdRule.addFieldRule(containerNum);
 
@@ -122,7 +122,7 @@ public class ReportExample {
         FieldRule dateValue = new FieldRule();
         dateValue.setPosition("DTM.C507.2380");
         dateValue.setName("dateValue");
-        dateValue.setValidation(FieldRule.ValidationType.DATE_FORMAT);
+        dateValue.setValidationType(FieldRule.ValidationType.DATE_FORMAT);
         dateValue.setDateFormatField("DTM.C507.2379");
         dtmRule.addFieldRule(dateValue);
 

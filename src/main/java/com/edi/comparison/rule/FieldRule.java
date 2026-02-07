@@ -23,16 +23,16 @@ public class FieldRule {
     
     private String position;
     private String name;
-    private ValidationType validation;
+    private String validation;  // Stored as string for YAML compatibility
     private String source;
     private String expectedValue;
     private String pattern;
     private String dateFormatField;
     private String customValidator;
     private boolean required;
-    
+
     public FieldRule() {
-        this.validation = ValidationType.EXACT_MATCH;
+        this.validation = "exact_match";
         this.required = true;
     }
     
@@ -64,26 +64,30 @@ public class FieldRule {
     
     /**
      * Gets the validation type to apply.
-     * 
+     *
      * @return validation type
      */
     public ValidationType getValidation() {
-        return validation;
+        return ValidationType.fromString(validation);
     }
-    
-    public void setValidation(ValidationType validation) {
-        this.validation = validation;
-    }
-    
+
     /**
-     * Convenience method to set validation type from string.
-     * 
-     * @param validation validation type string
+     * Sets the validation type from enum.
+     *
+     * @param validation validation type enum
+     */
+    public void setValidationType(ValidationType validation) {
+        this.validation = validation != null ? validation.name().toLowerCase() : "exact_match";
+    }
+
+    /**
+     * Sets the validation type from string representation (e.g., "exact_match").
+     * This is the setter used by YAML deserialization.
+     *
+     * @param validation validation type as string
      */
     public void setValidation(String validation) {
-        if (validation != null) {
-            this.validation = ValidationType.fromString(validation);
-        }
+        this.validation = validation;
     }
     
     /**

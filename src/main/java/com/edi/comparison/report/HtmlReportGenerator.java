@@ -5,6 +5,9 @@ import com.edi.comparison.model.*;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -35,15 +38,61 @@ public class HtmlReportGenerator {
 
     /**
      * Generates HTML report and saves to file.
+     * Creates parent directories if they don't exist.
      *
      * @param result comparison result
      * @param outputPath output file path
+     * @return the absolute path where the report was saved
      * @throws IOException if file cannot be written
      */
-    public void generate(ComparisonResult result, String outputPath) throws IOException {
-        try (FileWriter writer = new FileWriter(outputPath)) {
+    public String generate(ComparisonResult result, String outputPath) throws IOException {
+        Path path = Paths.get(outputPath);
+
+        // Create parent directories if they don't exist
+        Path parentDir = path.getParent();
+        if (parentDir != null && !Files.exists(parentDir)) {
+            Files.createDirectories(parentDir);
+        }
+
+        try (FileWriter writer = new FileWriter(path.toFile())) {
             generate(result, writer);
         }
+
+        return path.toAbsolutePath().toString();
+    }
+
+    /**
+     * Generates HTML report in the specified directory with scenario-based organization.
+     * Creates directory structure: {baseDir}/{scenarioName}/report_{timestamp}.html
+     *
+     * @param result comparison result
+     * @param baseDir base directory for reports (e.g., "target/reports")
+     * @param scenarioName scenario or test name for folder organization
+     * @return the absolute path where the report was saved
+     * @throws IOException if file cannot be written
+     */
+    public String generate(ComparisonResult result, String baseDir, String scenarioName) throws IOException {
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String fileName = String.format("report_%s.html", timestamp);
+
+        Path reportPath = Paths.get(baseDir, scenarioName, fileName);
+        return generate(result, reportPath.toString());
+    }
+
+    /**
+     * Generates HTML report with a custom filename in the specified directory.
+     * Creates directory structure: {baseDir}/{scenarioName}/{fileName}
+     *
+     * @param result comparison result
+     * @param baseDir base directory for reports (e.g., "target/reports")
+     * @param scenarioName scenario or test name for folder organization
+     * @param fileName custom filename for the report
+     * @return the absolute path where the report was saved
+     * @throws IOException if file cannot be written
+     */
+    public String generate(ComparisonResult result, String baseDir, String scenarioName, String fileName) throws IOException {
+        Path reportPath = Paths.get(baseDir, scenarioName, fileName);
+        return generate(result, reportPath.toString());
     }
 
     /**

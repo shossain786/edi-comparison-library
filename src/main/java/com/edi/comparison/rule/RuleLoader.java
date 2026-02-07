@@ -2,6 +2,9 @@ package com.edi.comparison.rule;
 
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
+import org.yaml.snakeyaml.introspector.BeanAccess;
+import org.yaml.snakeyaml.introspector.Property;
+import org.yaml.snakeyaml.introspector.PropertyUtils;
 import org.yaml.snakeyaml.LoaderOptions;
 
 import java.io.*;
@@ -11,7 +14,7 @@ import java.util.Map;
 
 /**
  * Loads comparison rules from YAML configuration files.
- * 
+ *
  * <p>Supports loading from:
  * <ul>
  *   <li>File path</li>
@@ -19,7 +22,7 @@ import java.util.Map;
  *   <li>InputStream</li>
  *   <li>String content</li>
  * </ul>
- * 
+ *
  * <p>Example usage:
  * <pre>
  * RuleLoader loader = new RuleLoader();
@@ -27,12 +30,46 @@ import java.util.Map;
  * </pre>
  */
 public class RuleLoader {
-    
+
     private final Yaml yaml;
-    
+
     public RuleLoader() {
         LoaderOptions loaderOptions = new LoaderOptions();
         Constructor constructor = new Constructor(RuleSet.class, loaderOptions);
+
+        // Configure PropertyUtils to convert snake_case YAML properties to camelCase Java properties
+        // and use FIELD access to avoid getter/setter type mismatch issues
+        PropertyUtils propertyUtils = new PropertyUtils() {
+            @Override
+            public Property getProperty(Class<?> type, String name) {
+                // Convert snake_case to camelCase
+                String camelCaseName = snakeToCamelCase(name);
+                return super.getProperty(type, camelCaseName);
+            }
+
+            private String snakeToCamelCase(String snakeCase) {
+                if (snakeCase == null || !snakeCase.contains("_")) {
+                    return snakeCase;
+                }
+                StringBuilder result = new StringBuilder();
+                boolean capitalizeNext = false;
+                for (char c : snakeCase.toCharArray()) {
+                    if (c == '_') {
+                        capitalizeNext = true;
+                    } else if (capitalizeNext) {
+                        result.append(Character.toUpperCase(c));
+                        capitalizeNext = false;
+                    } else {
+                        result.append(c);
+                    }
+                }
+                return result.toString();
+            }
+        };
+        propertyUtils.setSkipMissingProperties(true);
+        propertyUtils.setBeanAccess(BeanAccess.FIELD);
+        constructor.setPropertyUtils(propertyUtils);
+
         this.yaml = new Yaml(constructor);
     }
     
