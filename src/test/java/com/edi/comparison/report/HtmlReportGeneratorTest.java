@@ -1,25 +1,24 @@
 package com.edi.comparison.report;
 
 import com.edi.comparison.model.*;
-import org.junit.jupiter.api.Test;
+import org.junit.Assert;
+import org.junit.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 /**
  * Tests for HtmlReportGenerator.
  */
-class HtmlReportGeneratorTest {
+public class HtmlReportGeneratorTest {
 
     @TempDir
     Path tempDir;
 
     @Test
-    void testGenerateSuccessReport() {
+    public void testGenerateSuccessReport() {
         // Create successful result
         ComparisonResult result = ComparisonResult.builder()
                 .segmentsCompared(5)
@@ -30,16 +29,16 @@ class HtmlReportGeneratorTest {
         HtmlReportGenerator generator = new HtmlReportGenerator();
         String html = generator.generateHtml(result);
 
-        assertNotNull(html);
-        assertTrue(html.contains("<!DOCTYPE html>"));
-        assertTrue(html.contains("PASSED"));
-        assertTrue(html.contains("All Validations Passed"));
-        assertTrue(html.contains("5")); // segments compared
-        assertTrue(html.contains("12")); // fields compared
+        Assert.assertNotNull(html);
+        Assert.assertTrue(html.contains("<!DOCTYPE html>"));
+        Assert.assertTrue(html.contains("PASSED"));
+        Assert.assertTrue(html.contains("All Validations Passed"));
+        Assert.assertTrue(html.contains("5")); // segments compared
+        Assert.assertTrue(html.contains("12")); // fields compared
     }
 
     @Test
-    void testGenerateFailureReport() {
+    public void testGenerateFailureReport() {
         // Create result with differences
         Difference diff1 = Difference.builder()
                 .segmentTag("BGM")
@@ -73,21 +72,21 @@ class HtmlReportGeneratorTest {
         HtmlReportGenerator generator = new HtmlReportGenerator();
         String html = generator.generateHtml(result);
 
-        assertNotNull(html);
-        assertTrue(html.contains("FAILED"));
-        assertTrue(html.contains("BGM"));
-        assertTrue(html.contains("documentCode"));
-        assertTrue(html.contains("340"));
-        assertTrue(html.contains("350"));
-        assertTrue(html.contains("INVALID"));
-        assertTrue(html.contains("VALUE_MISMATCH"));
-        assertTrue(html.contains("PATTERN_MISMATCH"));
-        assertTrue(html.contains("Line 2"));
-        assertTrue(html.contains("Line 4"));
+        Assert.assertNotNull(html);
+        Assert.assertTrue(html.contains("FAILED"));
+        Assert.assertTrue(html.contains("BGM"));
+        Assert.assertTrue(html.contains("documentCode"));
+        Assert.assertTrue(html.contains("340"));
+        Assert.assertTrue(html.contains("350"));
+        Assert.assertTrue(html.contains("INVALID"));
+        Assert.assertTrue(html.contains("VALUE_MISMATCH"));
+        Assert.assertTrue(html.contains("PATTERN_MISMATCH"));
+        Assert.assertTrue(html.contains("Line 2"));
+        Assert.assertTrue(html.contains("Line 4"));
     }
 
     @Test
-    void testGenerateToFile() throws Exception {
+    public void testGenerateToFile() throws Exception {
         Difference diff = Difference.builder()
                 .segmentTag("BGM")
                 .expected("340")
@@ -107,16 +106,16 @@ class HtmlReportGeneratorTest {
         HtmlReportGenerator generator = new HtmlReportGenerator();
         generator.generate(result, reportFile.getAbsolutePath());
 
-        assertTrue(reportFile.exists());
+        Assert.assertTrue(reportFile.exists());
 
         String content = Files.readString(reportFile.toPath());
-        assertTrue(content.contains("<!DOCTYPE html>"));
-        assertTrue(content.contains("BGM"));
-        assertTrue(content.contains("340"));
+        Assert.assertTrue(content.contains("<!DOCTYPE html>"));
+        Assert.assertTrue(content.contains("BGM"));
+        Assert.assertTrue(content.contains("340"));
     }
 
     @Test
-    void testGenerateWithMissingField() {
+    public void testGenerateWithMissingField() {
         Difference diff = Difference.builder()
                 .segmentTag("BGM")
                 .fieldPosition("BGM.0001")
@@ -136,13 +135,13 @@ class HtmlReportGeneratorTest {
         HtmlReportGenerator generator = new HtmlReportGenerator();
         String html = generator.generateHtml(result);
 
-        assertTrue(html.contains("MISSING_FIELD"));
-        assertTrue(html.contains("Required field"));
-        assertTrue(html.contains("missing"));
+        Assert.assertTrue(html.contains("MISSING_FIELD"));
+        Assert.assertTrue(html.contains("Required field"));
+        Assert.assertTrue(html.contains("missing"));
     }
 
     @Test
-    void testGenerateWithMissingSegment() {
+    public void testGenerateWithMissingSegment() {
         Difference diff = Difference.builder()
                 .segmentTag("BGM")
                 .type(Difference.DifferenceType.MISSING_SEGMENT)
@@ -159,12 +158,12 @@ class HtmlReportGeneratorTest {
         HtmlReportGenerator generator = new HtmlReportGenerator();
         String html = generator.generateHtml(result);
 
-        assertTrue(html.contains("MISSING_SEGMENT"));
-        assertTrue(html.contains("BGM"));
+        Assert.assertTrue(html.contains("MISSING_SEGMENT"));
+        Assert.assertTrue(html.contains("BGM"));
     }
 
     @Test
-    void testGenerateWithMultipleDifferenceTypes() {
+    public void testGenerateWithMultipleDifferenceTypes() {
         ComparisonResult result = ComparisonResult.builder()
                 .addDifference(Difference.builder()
                         .type(Difference.DifferenceType.VALUE_MISMATCH)
@@ -190,15 +189,15 @@ class HtmlReportGeneratorTest {
         HtmlReportGenerator generator = new HtmlReportGenerator();
         String html = generator.generateHtml(result);
 
-        assertTrue(html.contains("Differences Found"));
-        assertTrue(html.contains("3")); // 3 differences
-        assertTrue(html.contains("VALUE_MISMATCH"));
-        assertTrue(html.contains("PATTERN_MISMATCH"));
-        assertTrue(html.contains("MISSING_FIELD"));
+        Assert.assertTrue(html.contains("Differences Found"));
+        Assert.assertTrue(html.contains("3")); // 3 differences
+        Assert.assertTrue(html.contains("VALUE_MISMATCH"));
+        Assert.assertTrue(html.contains("PATTERN_MISMATCH"));
+        Assert.assertTrue(html.contains("MISSING_FIELD"));
     }
 
     @Test
-    void testHtmlEscaping() {
+    public void testHtmlEscaping() {
         Difference diff = Difference.builder()
                 .segmentTag("TEST")
                 .expected("<script>alert('xss')</script>")
@@ -217,13 +216,13 @@ class HtmlReportGeneratorTest {
         String html = generator.generateHtml(result);
 
         // Should be escaped
-        assertTrue(html.contains("&lt;script&gt;"));
-        assertTrue(html.contains("&amp;"));
-        assertFalse(html.contains("<script>alert"));
+        Assert.assertTrue(html.contains("&lt;script&gt;"));
+        Assert.assertTrue(html.contains("&amp;"));
+        Assert.assertFalse(html.contains("<script>alert"));
     }
 
     @Test
-    void testComparisonResultGenerateHtmlReport() throws Exception {
+    public void testComparisonResultGenerateHtmlReport() throws Exception {
         Difference diff = Difference.builder()
                 .segmentTag("BGM")
                 .expected("340")
@@ -240,16 +239,16 @@ class HtmlReportGeneratorTest {
 
         // Test generating to string
         String html = result.generateHtmlReport();
-        assertNotNull(html);
-        assertTrue(html.contains("<!DOCTYPE html>"));
-        assertTrue(html.contains("BGM"));
+        Assert.assertNotNull(html);
+        Assert.assertTrue(html.contains("<!DOCTYPE html>"));
+        Assert.assertTrue(html.contains("BGM"));
 
         // Test generating to file
         File reportFile = tempDir.resolve("result-report.html").toFile();
         result.generateHtmlReport(reportFile.getAbsolutePath());
 
-        assertTrue(reportFile.exists());
+        Assert.assertTrue(reportFile.exists());
         String fileContent = Files.readString(reportFile.toPath());
-        assertTrue(fileContent.contains("BGM"));
+        Assert.assertTrue(fileContent.contains("BGM"));
     }
 }
