@@ -197,6 +197,29 @@ public class ComparisonResult {
     }
 
     /**
+     * Generates an HTML report and saves it to a file.
+     *
+     * @param outputPath path to save HTML report
+     * @throws java.io.IOException if file cannot be written
+     */
+    public void generateHtmlReport(String outputPath) throws java.io.IOException {
+        com.edi.comparison.report.HtmlReportGenerator generator =
+                new com.edi.comparison.report.HtmlReportGenerator();
+        generator.generate(this, outputPath);
+    }
+
+    /**
+     * Generates an HTML report as a string.
+     *
+     * @return HTML report string
+     */
+    public String generateHtmlReport() {
+        com.edi.comparison.report.HtmlReportGenerator generator =
+                new com.edi.comparison.report.HtmlReportGenerator();
+        return generator.generateHtml(this);
+    }
+
+    /**
      * Creates a new builder.
      *
      * @return new Builder
