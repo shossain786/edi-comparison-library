@@ -1,0 +1,83 @@
+message_type: IFTMBF
+description: Booking confirmation message comparison rules
+
+rules:
+  # BGM - Beginning of message
+  - segment: BGM
+    required: true
+    order_matters: false
+    multiple_occurrences: false
+    fields:
+      - position: BGM.0001
+        name: documentCode
+        validation: exact_match
+        source: testData.bgmCode
+        required: true
+      
+      - position: BGM.0002
+        name: bookingNumber
+        validation: exact_match
+        source: testData.bookingNumber
+        required: true
+  
+  # DTM - Date/time
+  - segment: DTM
+    required: false
+    order_matters: false
+    multiple_occurrences: true
+    fields:
+      - position: DTM.C507.2005
+        name: dateQualifier
+        validation: exists
+        required: true
+      
+      - position: DTM.C507.2380
+        name: dateValue
+        validation: date_format
+        date_format_field: DTM.C507.2379
+        required: true
+  
+  # NAD - Name and address
+  - segment: NAD
+    required: true
+    order_matters: false
+    multiple_occurrences: true
+    fields:
+      - position: NAD.3035
+        name: partyQualifier
+        validation: exact_match
+        required: true
+      
+      - position: NAD.C082.3039
+        name: partyId
+        validation: pattern_match
+        pattern: "^[A-Z0-9]{1,35}$"
+        required: false
+  
+  # EQD - Equipment details (container)
+  - segment: EQD
+    required: false
+    order_matters: false
+    multiple_occurrences: true
+    fields:
+      - position: EQD.8053
+        name: equipmentQualifier
+        validation: exact_match
+        expected_value: CN
+        required: true
+      
+      - position: EQD.C237.8260
+        name: containerNumber
+        validation: pattern_match
+        pattern: "^[A-Z]{4}[0-9]{7}$"
+        required: true
+      
+      - position: EQD.C224.8155
+        name: equipmentSizeType
+        validation: exists
+        required: false
+
+config:
+  ignore_trailing_whitespace: true
+  case_sensitive: true
+  fail_on_first_error: false

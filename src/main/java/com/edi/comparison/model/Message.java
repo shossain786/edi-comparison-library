@@ -211,6 +211,23 @@ public final class Message {
         return new Builder();
     }
     
+    /**
+     * Creates a builder initialized with values from this message.
+     * Useful for creating modified copies.
+     * 
+     * @return new Message.Builder with current message's values
+     */
+    public Builder toBuilder() {
+        Builder builder = new Builder()
+            .fileFormat(this.fileFormat)
+            .messageType(this.messageType)
+            .sourceFilePath(this.sourceFilePath)
+            .addMetadata(this.metadata);
+        
+        this.segments.forEach(builder::addSegment);
+        return builder;
+    }
+    
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

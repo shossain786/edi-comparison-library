@@ -1,0 +1,20 @@
+message_type: TEST
+description: Simple test rules
+
+rules:
+  - segment: BGM
+    fields:
+      - position: BGM.0001
+        validation: exact_match
+        expected_value: "340"
+      
+      - position: BGM.0002
+        validation: exact_match
+        source: testData.bookingNumber
+  
+  - segment: NAD
+    multiple_occurrences: true
+    order_matters: false
+    fields:
+      - position: NAD.3035
+        validation: exact_match
