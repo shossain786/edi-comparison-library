@@ -48,6 +48,7 @@ public class ComparisonConfig {
     private static final boolean DEFAULT_FAIL_ON_FIRST_ERROR = false;
     private static final boolean DEFAULT_CASE_SENSITIVE = true;
     private static final boolean DEFAULT_DETECT_UNEXPECTED_SEGMENTS = true;
+    private static final boolean DEFAULT_VALIDATE_SEGMENT_ORDER = false;
 
     private final Properties properties;
 
@@ -167,6 +168,18 @@ public class ComparisonConfig {
     }
 
     /**
+     * Checks if segment order should be validated.
+     * When true, segments must appear in the order defined in the template.
+     *
+     * @return true to validate segment order
+     */
+    public boolean isValidateSegmentOrder() {
+        return Boolean.parseBoolean(
+                properties.getProperty("comparison.validate.segment.order",
+                        String.valueOf(DEFAULT_VALIDATE_SEGMENT_ORDER)));
+    }
+
+    /**
      * Gets a custom property value.
      *
      * @param key property key
@@ -195,6 +208,7 @@ public class ComparisonConfig {
                 ", failOnFirstError=" + isFailOnFirstError() +
                 ", caseSensitive=" + isCaseSensitive() +
                 ", detectUnexpectedSegments=" + isDetectUnexpectedSegments() +
+                ", validateSegmentOrder=" + isValidateSegmentOrder() +
                 '}';
     }
 }

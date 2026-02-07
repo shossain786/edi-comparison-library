@@ -127,6 +127,12 @@ public class ComparisonEngine {
             }
         }
 
+        // Validate segment order if enabled
+        boolean validateSegmentOrder = context.getConfigBoolean("validate_segment_order", false);
+        if (validateSegmentOrder) {
+            validateSegmentOrder(actual, ruleSet, resultBuilder);
+        }
+
         long endTime = System.currentTimeMillis();
 
         return resultBuilder
@@ -310,6 +316,53 @@ public class ComparisonEngine {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Validates that segments appear in the order defined in the template.
+     * The order of rules in the RuleSet defines the expected segment order.
+     */
+    private void validateSegmentOrder(Message actual, RuleSet ruleSet, ComparisonResult.Builder resultBuilder) {
+        // Build expected order from template rules
+        List<String> expectedOrder = new ArrayList<>();
+        for (ComparisonRule rule : ruleSet.getRules()) {
+            expectedOrder.add(rule.getSegment());
+        }
+
+        // Get actual segment order (excluding envelope segments)
+        List<Segment> actualSegments = actual.getSegments().stream()
+                .filter(s -> !isEnvelopeSegment(s.getTag()))
+                .collect(java.util.stream.Collectors.toList());
+
+        // Track last seen position in expected order for each segment type
+        int lastExpectedIndex = -1;
+        String lastSegmentTag = null;
+
+        for (Segment segment : actualSegments) {
+            String tag = segment.getTag();
+            int expectedIndex = expectedOrder.indexOf(tag);
+
+            // Skip segments not in template (handled by unexpected segment check)
+            if (expectedIndex == -1) {
+                continue;
+            }
+
+            // Check if this segment appears before a segment that should come after it
+            if (expectedIndex < lastExpectedIndex) {
+                resultBuilder.addDifference(Difference.builder()
+                        .segmentTag(tag)
+                        .type(Difference.DifferenceType.SEGMENT_ORDER_MISMATCH)
+                        .lineNumber(segment.getLineNumber())
+                        .expected("Segment " + tag + " should appear before " + lastSegmentTag)
+                        .actual("Segment " + tag + " appears after " + lastSegmentTag)
+                        .description("Segment " + tag + " is out of order (should appear before " + lastSegmentTag + ")")
+                        .build());
+            } else {
+                // Update last seen position only if we're moving forward in expected order
+                lastExpectedIndex = expectedIndex;
+                lastSegmentTag = tag;
+            }
+        }
     }
 
     /**

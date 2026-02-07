@@ -23,6 +23,11 @@ rules:
         name: dateQualifier
         validation: exists
 
+      - position: DTM.C001.0002
+        name: dateValue
+        validation: pattern_match
+        pattern: "^[0-9]{8}$|^[0-9]{12}$"
+
   - segment: RFF
     required: true
     multiple_occurrences: true

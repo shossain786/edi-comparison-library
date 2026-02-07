@@ -141,6 +141,55 @@ class SimpleTemplateVerificationTest {
         printResult(scenarioName, result, reportPath);
     }
 
+    /**
+     * Test verifying a generated outbound file (e.g., downloaded from FTP)
+     * against the verification template.
+     *
+     * <p>This simulates the real-world scenario where:
+     * <ol>
+     *   <li>A baseline outbound exists: bk_iftmbf_request_outbound</li>
+     *   <li>A new outbound is generated/downloaded: bk_iftmbf_request_outbound_generated</li>
+     *   <li>We verify the generated file against the template rules</li>
+     * </ol>
+     */
+    @Test
+    void testGeneratedOutboundVerification() throws Exception {
+        String scenarioName = "ftp-generated-outbound";
+
+        // Load the verification template (YAML rules)
+        RuleSet template = ruleLoader.loadFromResource("rules/outbound-verification-template.yaml");
+        assertNotNull(template, "Template should be loaded");
+
+        // Load the generated outbound file (simulating FTP download)
+        String generatedContent = loadResourceAsString("samples/outbounds/bk_iftmbf_request_outbound_generated");
+        Message generatedOutbound = parser.parse(generatedContent);
+
+        // Setup context with all config options
+        ComparisonContext context = ComparisonContext.builder()
+                .testData(new HashMap<>())
+                .addConfig("detect_unexpected_segments", config.isDetectUnexpectedSegments())
+                .addConfig("validate_segment_order", config.isValidateSegmentOrder())
+                .build();
+
+        ComparisonEngine engine = new ComparisonEngine(template, context);
+        ComparisonResult result = engine.compare(null, generatedOutbound);
+
+        // Generate report
+        String reportPath = reportGenerator.generate(result, config.getReportBaseDir(), scenarioName);
+
+        assertTrue(Files.exists(Path.of(reportPath)), "Report file should exist");
+        printResult(scenarioName, result, reportPath);
+
+        // Print differences if any
+        if (result.hasDifferences()) {
+            System.out.println("Differences found:");
+            result.getDifferences().forEach(diff ->
+                    System.out.println("  - " + diff.getType() + ": " + diff.getDescription()));
+        }
+
+        assertTrue(result.isSuccess(), "Generated outbound should pass verification");
+    }
+
     private void printResult(String scenario, ComparisonResult result, String reportPath) {
         System.out.println("=== " + scenario + " ===");
         System.out.println("Status: " + (result.isSuccess() ? "PASSED" : "FAILED"));
