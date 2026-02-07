@@ -6,7 +6,6 @@ import com.edi.comparison.model.*;
 import com.edi.comparison.parser.EdifactParser;
 import com.edi.comparison.rule.*;
 
-import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
