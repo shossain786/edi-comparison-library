@@ -151,6 +151,9 @@ public class Difference {
         /** Required segment is missing */
         MISSING_SEGMENT,
 
+        /** Unexpected segment found (not defined in template) */
+        UNEXPECTED_SEGMENT,
+
         /** Pattern validation failed */
         PATTERN_MISMATCH,
 

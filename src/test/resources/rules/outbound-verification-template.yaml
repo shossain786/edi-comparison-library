@@ -40,6 +40,22 @@ rules:
         name: partyQualifier
         validation: exists
 
+  - segment: LOC
+    required: false
+    multiple_occurrences: true
+    fields:
+      - position: LOC.0001
+        name: locationQualifier
+        validation: exists
+
+  - segment: TDT
+    required: false
+    multiple_occurrences: true
+    fields:
+      - position: TDT.0001
+        name: transportStageQualifier
+        validation: exists
+
   - segment: EQD
     required: true
     multiple_occurrences: true
@@ -59,6 +75,14 @@ rules:
     fields:
       - position: SEL.0001
         name: sealNumber
+        validation: exists
+
+  - segment: MEA
+    required: false
+    multiple_occurrences: true
+    fields:
+      - position: MEA.0001
+        name: measurementQualifier
         validation: exists
 
   - segment: CNT

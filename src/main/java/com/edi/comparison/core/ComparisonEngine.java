@@ -4,8 +4,10 @@ import com.edi.comparison.model.*;
 import com.edi.comparison.rule.*;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -63,6 +65,12 @@ public class ComparisonEngine {
         int segmentsCompared = 0;
         int fieldsCompared = 0;
 
+        // Collect all segment tags defined in rules
+        Set<String> definedSegments = new HashSet<>();
+        for (ComparisonRule rule : ruleSet.getRules()) {
+            definedSegments.add(rule.getSegment());
+        }
+
         // Apply each rule
         for (ComparisonRule rule : ruleSet.getRules()) {
             List<Segment> actualSegments = actual.getSegmentsByTag(rule.getSegment());
@@ -94,6 +102,28 @@ public class ComparisonEngine {
                 List<Difference> segmentDiffs = compareSegment(rule, actualSegment);
                 resultBuilder.addDifferences(segmentDiffs);
                 fieldsCompared += rule.getFields().size();
+            }
+        }
+
+        // Check for unexpected segments (not defined in template)
+        boolean detectUnexpectedSegments = context.getConfigBoolean("detect_unexpected_segments", true);
+        if (detectUnexpectedSegments) {
+            Set<String> reportedUnexpected = new HashSet<>();
+            for (Segment segment : actual.getSegments()) {
+                String tag = segment.getTag();
+                // Skip envelope segments (UNB, UNH, UNT, UNZ) as they are standard
+                if (isEnvelopeSegment(tag)) {
+                    continue;
+                }
+                if (!definedSegments.contains(tag) && !reportedUnexpected.contains(tag)) {
+                    resultBuilder.addDifference(Difference.builder()
+                            .segmentTag(tag)
+                            .type(Difference.DifferenceType.UNEXPECTED_SEGMENT)
+                            .lineNumber(segment.getLineNumber())
+                            .description("Unexpected segment " + tag + " found (not defined in template)")
+                            .build());
+                    reportedUnexpected.add(tag);
+                }
             }
         }
 
@@ -263,6 +293,23 @@ public class ComparisonEngine {
         }
 
         return null;
+    }
+
+    /**
+     * Checks if a segment is a standard envelope segment that should be ignored.
+     */
+    private boolean isEnvelopeSegment(String tag) {
+        if (tag == null) return false;
+        // EDIFACT envelope segments
+        if (tag.equals("UNB") || tag.equals("UNH") || tag.equals("UNT") || tag.equals("UNZ")) {
+            return true;
+        }
+        // ANSI X12 envelope segments
+        if (tag.equals("ISA") || tag.equals("GS") || tag.equals("ST") || tag.equals("SE") ||
+            tag.equals("GE") || tag.equals("IEA")) {
+            return true;
+        }
+        return false;
     }
 
     /**

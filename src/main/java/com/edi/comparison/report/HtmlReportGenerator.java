@@ -149,7 +149,7 @@ public class HtmlReportGenerator {
     }
 
     /**
-     * Generates CSS styles.
+     * Generates CSS styles (dark theme).
      */
     private String getStyles() {
         return """
@@ -159,45 +159,47 @@ public class HtmlReportGenerator {
                     padding: 0;
                     box-sizing: border-box;
                 }
-                
+
                 body {
                     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                    background: #f5f5f5;
+                    background: #0d1117;
                     padding: 20px;
                     line-height: 1.6;
+                    color: #c9d1d9;
                 }
-                
+
                 .container {
                     max-width: 1200px;
                     margin: 0 auto;
-                    background: white;
+                    background: #161b22;
                     border-radius: 8px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
                     overflow: hidden;
+                    border: 1px solid #30363d;
                 }
-                
+
                 .header {
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: linear-gradient(135deg, #238636 0%, #1f6feb 100%);
                     color: white;
                     padding: 30px;
                 }
-                
+
                 .header h1 {
                     font-size: 2em;
                     margin-bottom: 10px;
                 }
-                
+
                 .header .timestamp {
                     opacity: 0.9;
                     font-size: 0.9em;
                 }
-                
+
                 .summary {
                     padding: 30px;
-                    background: #f8f9fa;
-                    border-bottom: 1px solid #dee2e6;
+                    background: #21262d;
+                    border-bottom: 1px solid #30363d;
                 }
-                
+
                 .status-badge {
                     display: inline-block;
                     padding: 8px 16px;
@@ -206,145 +208,161 @@ public class HtmlReportGenerator {
                     font-size: 1.1em;
                     margin-bottom: 20px;
                 }
-                
+
                 .status-success {
-                    background: #28a745;
+                    background: #238636;
                     color: white;
                 }
-                
+
                 .status-failure {
-                    background: #dc3545;
+                    background: #da3633;
                     color: white;
                 }
-                
+
                 .stats {
                     display: grid;
                     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
                     gap: 20px;
                     margin-top: 20px;
                 }
-                
+
                 .stat-card {
-                    background: white;
+                    background: #0d1117;
                     padding: 20px;
                     border-radius: 8px;
-                    border-left: 4px solid #667eea;
+                    border-left: 4px solid #58a6ff;
+                    border: 1px solid #30363d;
+                    border-left: 4px solid #58a6ff;
                 }
-                
+
                 .stat-label {
-                    color: #6c757d;
+                    color: #8b949e;
                     font-size: 0.9em;
                     margin-bottom: 5px;
                 }
-                
+
                 .stat-value {
                     font-size: 2em;
                     font-weight: bold;
-                    color: #333;
+                    color: #f0f6fc;
                 }
-                
+
                 .differences {
                     padding: 30px;
                 }
-                
+
                 .differences h2 {
-                    color: #333;
+                    color: #f0f6fc;
                     margin-bottom: 20px;
                     padding-bottom: 10px;
-                    border-bottom: 2px solid #667eea;
+                    border-bottom: 2px solid #58a6ff;
                 }
-                
+
                 .difference-item {
-                    background: #fff;
-                    border: 1px solid #dee2e6;
+                    background: #0d1117;
+                    border: 1px solid #30363d;
                     border-radius: 8px;
                     padding: 20px;
                     margin-bottom: 15px;
-                    border-left: 4px solid #dc3545;
+                    border-left: 4px solid #da3633;
                 }
-                
+
+                .difference-item strong {
+                    color: #f0f6fc;
+                }
+
+                .difference-item p {
+                    color: #c9d1d9;
+                }
+
                 .difference-header {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
                     margin-bottom: 15px;
                 }
-                
+
                 .difference-type {
-                    background: #dc3545;
+                    background: #da3633;
                     color: white;
                     padding: 4px 12px;
                     border-radius: 4px;
                     font-size: 0.85em;
                     font-weight: bold;
                 }
-                
+
                 .difference-location {
-                    color: #6c757d;
+                    color: #8b949e;
                     font-size: 0.9em;
                 }
-                
+
                 .difference-details {
                     display: grid;
                     grid-template-columns: 1fr 1fr;
                     gap: 20px;
                     margin-top: 15px;
                 }
-                
+
                 .value-box {
                     padding: 15px;
                     border-radius: 6px;
                     font-family: 'Courier New', monospace;
                 }
-                
+
                 .expected-value {
-                    background: #d4edda;
-                    border: 1px solid #c3e6cb;
+                    background: #1b4332;
+                    border: 1px solid #238636;
+                    color: #7ee787;
                 }
-                
+
                 .actual-value {
-                    background: #f8d7da;
-                    border: 1px solid #f5c6cb;
+                    background: #3d1418;
+                    border: 1px solid #da3633;
+                    color: #ffa198;
                 }
-                
+
                 .value-label {
                     font-size: 0.85em;
                     font-weight: bold;
                     margin-bottom: 8px;
                     text-transform: uppercase;
-                    color: #495057;
+                    color: #8b949e;
                 }
-                
+
                 .value-content {
                     font-size: 1.1em;
                     word-break: break-all;
                 }
-                
+
                 .success-message {
                     padding: 50px 30px;
                     text-align: center;
                 }
-                
+
                 .success-icon {
                     font-size: 4em;
-                    color: #28a745;
+                    color: #238636;
                     margin-bottom: 20px;
                 }
-                
+
                 .success-message h2 {
-                    color: #28a745;
+                    color: #7ee787;
                     margin-bottom: 10px;
                 }
-                
+
+                .success-message p {
+                    color: #8b949e;
+                }
+
                 .footer {
-                    background: #f8f9fa;
+                    background: #21262d;
                     padding: 20px 30px;
                     text-align: center;
-                    color: #6c757d;
+                    color: #8b949e;
                     font-size: 0.9em;
-                    border-top: 1px solid #dee2e6;
+                    border-top: 1px solid #30363d;
                 }
-                
+
                 @media (max-width: 768px) {
                     .difference-details {
                         grid-template-columns: 1fr;

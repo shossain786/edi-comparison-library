@@ -60,9 +60,10 @@ class SimpleTemplateVerificationTest {
         String outboundContent = loadResourceAsString("samples/outbounds/bk_iftmbf_request_outbound");
         Message outbound = parser.parse(outboundContent);
 
-        // Setup context and run verification
+        // Setup context with config and run verification
         ComparisonContext context = ComparisonContext.builder()
                 .testData(new HashMap<>())
+                .addConfig("detect_unexpected_segments", config.isDetectUnexpectedSegments())
                 .build();
 
         ComparisonEngine engine = new ComparisonEngine(template, context);
@@ -96,6 +97,7 @@ class SimpleTemplateVerificationTest {
 
         ComparisonContext context = ComparisonContext.builder()
                 .testData(new HashMap<>())
+                .addConfig("detect_unexpected_segments", config.isDetectUnexpectedSegments())
                 .build();
 
         ComparisonEngine engine = new ComparisonEngine(template, context);
@@ -124,6 +126,7 @@ class SimpleTemplateVerificationTest {
 
         ComparisonContext context = ComparisonContext.builder()
                 .testData(testData)
+                .addConfig("detect_unexpected_segments", config.isDetectUnexpectedSegments())
                 .build();
 
         Message message = parser.parse(outbound);

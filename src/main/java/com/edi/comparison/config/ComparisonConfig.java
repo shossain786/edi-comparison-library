@@ -47,6 +47,7 @@ public class ComparisonConfig {
     private static final String DEFAULT_FILENAME_PATTERN = "report_{timestamp}.html";
     private static final boolean DEFAULT_FAIL_ON_FIRST_ERROR = false;
     private static final boolean DEFAULT_CASE_SENSITIVE = true;
+    private static final boolean DEFAULT_DETECT_UNEXPECTED_SEGMENTS = true;
 
     private final Properties properties;
 
@@ -155,6 +156,17 @@ public class ComparisonConfig {
     }
 
     /**
+     * Checks if unexpected segments should be detected.
+     *
+     * @return true to report segments not defined in template
+     */
+    public boolean isDetectUnexpectedSegments() {
+        return Boolean.parseBoolean(
+                properties.getProperty("comparison.detect.unexpected.segments",
+                        String.valueOf(DEFAULT_DETECT_UNEXPECTED_SEGMENTS)));
+    }
+
+    /**
      * Gets a custom property value.
      *
      * @param key property key
@@ -182,6 +194,7 @@ public class ComparisonConfig {
                 ", filenamePattern='" + getReportFilenamePattern() + '\'' +
                 ", failOnFirstError=" + isFailOnFirstError() +
                 ", caseSensitive=" + isCaseSensitive() +
+                ", detectUnexpectedSegments=" + isDetectUnexpectedSegments() +
                 '}';
     }
 }
