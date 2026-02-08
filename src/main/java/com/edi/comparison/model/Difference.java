@@ -140,34 +140,81 @@ public class Difference {
 
     /**
      * Types of differences that can be found.
+     * Each type belongs to a persona-based failure category for intuitive reporting.
      */
     public enum DifferenceType {
         /** Field value mismatch */
-        VALUE_MISMATCH,
+        VALUE_MISMATCH(FailureCategory.THE_SHAPESHIFTER),
 
         /** Required field is missing */
-        MISSING_FIELD,
+        MISSING_FIELD(FailureCategory.THE_GHOSTED),
 
         /** Required segment is missing */
-        MISSING_SEGMENT,
+        MISSING_SEGMENT(FailureCategory.THE_GHOSTED),
 
         /** Unexpected segment found (not defined in template) */
-        UNEXPECTED_SEGMENT,
+        UNEXPECTED_SEGMENT(FailureCategory.THE_GATECRASHER),
 
         /** Pattern validation failed */
-        PATTERN_MISMATCH,
+        PATTERN_MISMATCH(FailureCategory.THE_SHAPESHIFTER),
 
         /** Date format validation failed */
-        DATE_FORMAT_INVALID,
+        DATE_FORMAT_INVALID(FailureCategory.THE_TIME_TRAVELER),
 
         /** Segment count mismatch */
-        SEGMENT_COUNT_MISMATCH,
+        SEGMENT_COUNT_MISMATCH(FailureCategory.THE_CROWD_CONTROL),
 
         /** Segment order mismatch */
-        SEGMENT_ORDER_MISMATCH,
+        SEGMENT_ORDER_MISMATCH(FailureCategory.THE_QUEUE_JUMPER),
 
         /** Custom validation failed */
-        CUSTOM_VALIDATION_FAILED
+        CUSTOM_VALIDATION_FAILED(FailureCategory.THE_REBEL);
+
+        private final FailureCategory category;
+
+        DifferenceType(FailureCategory category) {
+            this.category = category;
+        }
+
+        public FailureCategory getCategory() {
+            return category;
+        }
+    }
+
+    /**
+     * Persona-based failure categories for grouping and reporting differences.
+     * Each persona represents a class of EDI validation failure in a memorable way.
+     */
+    public enum FailureCategory {
+        THE_GHOSTED("The Ghosted", "Expected data that never showed up", "#8b5cf6"),
+        THE_GATECRASHER("The Gatecrasher", "Uninvited data that appeared without invitation", "#f97316"),
+        THE_SHAPESHIFTER("The Shapeshifter", "Data that changed form from what was expected", "#ef4444"),
+        THE_TIME_TRAVELER("The Time Traveler", "Timestamps and dates that lost their way", "#3b82f6"),
+        THE_CROWD_CONTROL("The Crowd Control", "Segments that multiplied or vanished unexpectedly", "#eab308"),
+        THE_QUEUE_JUMPER("The Queue Jumper", "Segments that cut in line", "#14b8a6"),
+        THE_REBEL("The Rebel", "Custom rules that were broken", "#6b7280");
+
+        private final String label;
+        private final String description;
+        private final String accentColor;
+
+        FailureCategory(String label, String description, String accentColor) {
+            this.label = label;
+            this.description = description;
+            this.accentColor = accentColor;
+        }
+
+        public String getLabel() {
+            return label;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public String getAccentColor() {
+            return accentColor;
+        }
     }
 
     /**

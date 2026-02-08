@@ -166,11 +166,11 @@ public class ComparisonResult {
         sb.append("  Time taken: ").append(comparisonTimeMs).append(" ms\n");
 
         if (hasDifferences()) {
-            sb.append("\nDifferences by type:\n");
-            Map<Difference.DifferenceType, Long> counts = differences.stream()
-                    .collect(Collectors.groupingBy(Difference::getType, Collectors.counting()));
-            counts.forEach((type, count) ->
-                    sb.append("  ").append(type).append(": ").append(count).append("\n")
+            sb.append("\nDifferences by category:\n");
+            Map<Difference.FailureCategory, Long> counts = differences.stream()
+                    .collect(Collectors.groupingBy(d -> d.getType().getCategory(), Collectors.counting()));
+            counts.forEach((category, count) ->
+                    sb.append("  ").append(category.getLabel()).append(": ").append(count).append("\n")
             );
         }
 

@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -283,12 +284,47 @@ public class HtmlReportGenerator {
                 }
 
                 .difference-type {
-                    background: #da3633;
                     color: white;
                     padding: 4px 12px;
                     border-radius: 4px;
                     font-size: 0.85em;
                     font-weight: bold;
+                }
+
+                .category-group {
+                    margin-bottom: 30px;
+                }
+
+                .category-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    margin-bottom: 15px;
+                    padding: 12px 16px;
+                    border-radius: 8px;
+                    background: #21262d;
+                    border: 1px solid #30363d;
+                }
+
+                .category-label {
+                    font-size: 1.2em;
+                    font-weight: bold;
+                    color: #f0f6fc;
+                }
+
+                .category-desc {
+                    font-size: 0.85em;
+                    color: #8b949e;
+                    font-style: italic;
+                }
+
+                .category-count {
+                    margin-left: auto;
+                    padding: 4px 12px;
+                    border-radius: 12px;
+                    font-size: 0.85em;
+                    font-weight: bold;
+                    color: white;
                 }
 
                 .difference-location {
@@ -436,23 +472,40 @@ public class HtmlReportGenerator {
     }
 
     /**
-     * Generates differences section.
+     * Generates differences section grouped by persona-based failure categories.
      */
     private String generateDifferences(ComparisonResult result) {
         StringBuilder html = new StringBuilder();
         html.append("    <div class=\"differences\">\n");
         html.append("        <h2>Differences Details</h2>\n");
 
-        // Group by type
-        Map<Difference.DifferenceType, List<Difference>> byType =
+        // Group by failure category, preserving enum declaration order
+        Map<Difference.FailureCategory, List<Difference>> byCategory =
                 result.getDifferences().stream()
-                        .collect(Collectors.groupingBy(Difference::getType));
+                        .collect(Collectors.groupingBy(
+                                d -> d.getType().getCategory(),
+                                LinkedHashMap::new,
+                                Collectors.toList()));
 
         int index = 1;
-        for (Map.Entry<Difference.DifferenceType, List<Difference>> entry : byType.entrySet()) {
-            for (Difference diff : entry.getValue()) {
-                html.append(generateDifferenceItem(diff, index++));
+        for (Map.Entry<Difference.FailureCategory, List<Difference>> entry : byCategory.entrySet()) {
+            Difference.FailureCategory category = entry.getKey();
+            List<Difference> diffs = entry.getValue();
+
+            html.append("        <div class=\"category-group\">\n");
+            html.append("            <div class=\"category-header\" style=\"border-left: 4px solid ")
+                    .append(category.getAccentColor()).append(";\">\n");
+            html.append("                <span class=\"category-label\">").append(category.getLabel()).append("</span>\n");
+            html.append("                <span class=\"category-desc\">").append(category.getDescription()).append("</span>\n");
+            html.append("                <span class=\"category-count\" style=\"background: ")
+                    .append(category.getAccentColor()).append(";\">").append(diffs.size()).append("</span>\n");
+            html.append("            </div>\n");
+
+            for (Difference diff : diffs) {
+                html.append(generateDifferenceItem(diff, index++, category.getAccentColor()));
             }
+
+            html.append("        </div>\n");
         }
 
         html.append("    </div>\n");
@@ -460,16 +513,17 @@ public class HtmlReportGenerator {
     }
 
     /**
-     * Generates a single difference item.
+     * Generates a single difference item with category-specific accent color.
      */
-    private String generateDifferenceItem(Difference diff, int index) {
+    private String generateDifferenceItem(Difference diff, int index, String accentColor) {
         StringBuilder html = new StringBuilder();
 
-        html.append("        <div class=\"difference-item\">\n");
+        html.append("        <div class=\"difference-item\" style=\"border-left-color: ")
+                .append(accentColor).append(";\">\n");
         html.append("            <div class=\"difference-header\">\n");
         html.append(String.format("                <strong>#%d</strong>\n", index));
-        html.append(String.format("                <span class=\"difference-type\">%s</span>\n",
-                diff.getType()));
+        html.append(String.format("                <span class=\"difference-type\" style=\"background: %s;\">%s</span>\n",
+                accentColor, diff.getType()));
         html.append("            </div>\n");
 
         // Location
