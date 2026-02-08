@@ -8,13 +8,17 @@ import com.edi.comparison.parser.EdifactParser;
 import com.edi.comparison.report.HtmlReportGenerator;
 import com.edi.comparison.rule.RuleLoader;
 import com.edi.comparison.rule.RuleSet;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -33,6 +37,9 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class SimpleTemplateVerificationTest {
 
+    private static final List<HtmlReportGenerator.ScenarioResult> scenarioResults =
+            Collections.synchronizedList(new ArrayList<>());
+
     private ComparisonConfig config;
     private RuleLoader ruleLoader;
     private EdifactParser parser;
@@ -47,6 +54,15 @@ class SimpleTemplateVerificationTest {
         reportGenerator = new HtmlReportGenerator();
 
         System.out.println("Using config: " + config);
+    }
+
+    @AfterAll
+    static void generateCombinedReport() throws Exception {
+        if (!scenarioResults.isEmpty()) {
+            HtmlReportGenerator generator = new HtmlReportGenerator();
+            String path = generator.generateCombined(scenarioResults, ComparisonConfig.load().getReportBaseDir());
+            System.out.println("Combined report: " + path);
+        }
     }
 
     @Test
@@ -69,6 +85,7 @@ class SimpleTemplateVerificationTest {
 
         ComparisonEngine engine = new ComparisonEngine(template, context);
         ComparisonResult result = engine.compare(null, outbound);
+        scenarioResults.add(new HtmlReportGenerator.ScenarioResult(scenarioName, result, result.isSuccess()));
 
         // Generate report using configured base directory
         String reportPath = reportGenerator.generate(result, config.getReportBaseDir(), scenarioName);
@@ -103,6 +120,7 @@ class SimpleTemplateVerificationTest {
 
         ComparisonEngine engine = new ComparisonEngine(template, context);
         ComparisonResult result = engine.compare(null, outbound);
+        scenarioResults.add(new HtmlReportGenerator.ScenarioResult(scenarioName, result, !result.isSuccess()));
 
         // Generate report with custom filename
         String reportPath = reportGenerator.generate(result, config.getReportBaseDir(), scenarioName, "failure-report.html");
@@ -133,6 +151,7 @@ class SimpleTemplateVerificationTest {
         Message message = parser.parse(outbound);
         ComparisonEngine engine = new ComparisonEngine(template, context);
         ComparisonResult result = engine.compare(null, message);
+        scenarioResults.add(new HtmlReportGenerator.ScenarioResult(scenarioName, result, result.isSuccess()));
 
         // Generate report
         String reportPath = reportGenerator.generate(result, config.getReportBaseDir(), scenarioName);
@@ -177,6 +196,7 @@ class SimpleTemplateVerificationTest {
 
         ComparisonEngine engine = new ComparisonEngine(template, context);
         ComparisonResult result = engine.compare(null, generatedOutbound);
+        scenarioResults.add(new HtmlReportGenerator.ScenarioResult(scenarioName, result, result.isSuccess()));
 
         // Generate report
         String reportPath = reportGenerator.generate(result, config.getReportBaseDir(), scenarioName);
