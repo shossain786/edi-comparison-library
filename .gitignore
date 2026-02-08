@@ -28,6 +28,7 @@ bin/
 # OS
 .DS_Store
 Thumbs.db
+nul
 
 # Logs
 *.log

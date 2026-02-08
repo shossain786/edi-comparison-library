@@ -31,12 +31,14 @@ public class ComparisonRule {
     private boolean orderMatters;
     private boolean multipleOccurrences;
     private boolean required;
+    private int expectedCount;
     
     public ComparisonRule() {
         this.fields = new ArrayList<>();
         this.orderMatters = false;
         this.multipleOccurrences = false;
         this.required = true;
+        this.expectedCount = 0; // 0 means no count validation
     }
     
     /**
@@ -105,7 +107,21 @@ public class ComparisonRule {
     public void setRequired(boolean required) {
         this.required = required;
     }
-    
+
+    /**
+     * Gets the expected number of occurrences for this segment.
+     * A value of 0 means no count validation is performed.
+     *
+     * @return expected count, or 0 if not enforced
+     */
+    public int getExpectedCount() {
+        return expectedCount;
+    }
+
+    public void setExpectedCount(int expectedCount) {
+        this.expectedCount = expectedCount;
+    }
+
     /**
      * Adds a field rule to this segment rule.
      * 
@@ -125,6 +141,7 @@ public class ComparisonRule {
                 ", orderMatters=" + orderMatters +
                 ", multiple=" + multipleOccurrences +
                 ", required=" + required +
+                ", expectedCount=" + expectedCount +
                 '}';
     }
 }

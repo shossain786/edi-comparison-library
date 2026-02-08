@@ -2,6 +2,7 @@ package com.edi.comparison.core;
 
 import com.edi.comparison.config.ComparisonConfig;
 import com.edi.comparison.model.ComparisonResult;
+import com.edi.comparison.model.Difference;
 import com.edi.comparison.model.Message;
 import com.edi.comparison.parser.EdifactParser;
 import com.edi.comparison.report.HtmlReportGenerator;
@@ -108,7 +109,7 @@ class SimpleTemplateVerificationTest {
 
         assertTrue(Files.exists(Path.of(reportPath)), "Failure report should exist");
         assertFalse(result.isSuccess(), "Should fail verification");
-        printResult(scenarioName, result, reportPath);
+        printResult(scenarioName, result, reportPath, false);
     }
 
     @Test
@@ -143,21 +144,24 @@ class SimpleTemplateVerificationTest {
 
     /**
      * Test verifying a generated outbound file (e.g., downloaded from FTP)
-     * against the verification template.
+     * against the strict verification template.
      *
      * <p>This simulates the real-world scenario where:
      * <ol>
      *   <li>A baseline outbound exists: bk_iftmbf_request_outbound</li>
      *   <li>A new outbound is generated/downloaded: bk_iftmbf_request_outbound_generated</li>
-     *   <li>We verify the generated file against the template rules</li>
+     *   <li>We verify the generated file against the strict template rules</li>
      * </ol>
+     *
+     * <p>If the generated file has extra or missing segments, the test will fail
+     * with detailed reporting showing line numbers and segment content.
      */
     @Test
     void testGeneratedOutboundVerification() throws Exception {
         String scenarioName = "ftp-generated-outbound";
 
-        // Load the verification template (YAML rules)
-        RuleSet template = ruleLoader.loadFromResource("rules/outbound-verification-template.yaml");
+        // Load the strict verification template with expected segment counts
+        RuleSet template = ruleLoader.loadFromResource("rules/outbound-verification-strict-template.yaml");
         assertNotNull(template, "Template should be loaded");
 
         // Load the generated outbound file (simulating FTP download)
@@ -191,10 +195,18 @@ class SimpleTemplateVerificationTest {
     }
 
     private void printResult(String scenario, ComparisonResult result, String reportPath) {
+        printResult(scenario, result, reportPath, true);
+    }
+
+    private void printResult(String scenario, ComparisonResult result, String reportPath, boolean expectPass) {
         System.out.println("=== " + scenario + " ===");
-        System.out.println("Status: " + (result.isSuccess() ? "PASSED" : "FAILED"));
+        System.out.println("Comparison Result: " + (result.isSuccess() ? "PASSED" : "FAILED"));
         System.out.println("Differences: " + result.getDifferenceCount());
         System.out.println("Report: " + reportPath);
+
+        boolean testPassed = expectPass ? result.isSuccess() : !result.isSuccess();
+        System.out.println("Test Verdict: " + (testPassed ? "PASSED" : "FAILED")
+                + (expectPass ? " (expected: PASS)" : " (expected: FAIL)"));
     }
 
     private String loadResourceAsString(String resourcePath) throws Exception {

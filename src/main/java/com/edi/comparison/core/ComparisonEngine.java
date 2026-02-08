@@ -96,6 +96,44 @@ public class ComparisonEngine {
                         .build());
             }
 
+            // Check expected count if specified (expected_count > 0)
+            if (rule.getExpectedCount() > 0 && actualSegments.size() != rule.getExpectedCount()) {
+                int expectedCount = rule.getExpectedCount();
+                int actualCount = actualSegments.size();
+
+                // Build detailed listing of all occurrences with line numbers and content
+                StringBuilder occurrences = new StringBuilder();
+                for (int i = 0; i < actualSegments.size(); i++) {
+                    Segment seg = actualSegments.get(i);
+                    occurrences.append("\n  Line ").append(seg.getLineNumber()).append(": ");
+                    occurrences.append(seg.getRawContent() != null ? seg.getRawContent() : seg.getTag());
+                }
+
+                if (actualCount > expectedCount) {
+                    int extraCount = actualCount - expectedCount;
+                    resultBuilder.addDifference(Difference.builder()
+                            .segmentTag(rule.getSegment())
+                            .type(Difference.DifferenceType.SEGMENT_COUNT_MISMATCH)
+                            .expected(String.valueOf(expectedCount))
+                            .actual(String.valueOf(actualCount))
+                            .description("Segment " + rule.getSegment() + " has " + extraCount
+                                    + " extra occurrence(s) - expected " + expectedCount + " but found "
+                                    + actualCount + ". All occurrences:" + occurrences)
+                            .build());
+                } else {
+                    int missingCount = expectedCount - actualCount;
+                    resultBuilder.addDifference(Difference.builder()
+                            .segmentTag(rule.getSegment())
+                            .type(Difference.DifferenceType.SEGMENT_COUNT_MISMATCH)
+                            .expected(String.valueOf(expectedCount))
+                            .actual(String.valueOf(actualCount))
+                            .description("Segment " + rule.getSegment() + " is missing " + missingCount
+                                    + " occurrence(s) - expected " + expectedCount + " but found "
+                                    + actualCount + ". Found occurrences:" + occurrences)
+                            .build());
+                }
+            }
+
             // Compare each segment occurrence
             for (Segment actualSegment : actualSegments) {
                 segmentsCompared++;
@@ -321,6 +359,10 @@ public class ComparisonEngine {
     /**
      * Validates that segments appear in the order defined in the template.
      * The order of rules in the RuleSet defines the expected segment order.
+     *
+     * <p>This validation checks that the FIRST occurrence of each segment type
+     * appears in the expected order. Multiple occurrences of the same segment
+     * type are allowed and won't trigger order mismatch.
      */
     private void validateSegmentOrder(Message actual, RuleSet ruleSet, ComparisonResult.Builder resultBuilder) {
         // Build expected order from template rules
@@ -334,9 +376,12 @@ public class ComparisonEngine {
                 .filter(s -> !isEnvelopeSegment(s.getTag()))
                 .collect(java.util.stream.Collectors.toList());
 
-        // Track last seen position in expected order for each segment type
-        int lastExpectedIndex = -1;
-        String lastSegmentTag = null;
+        // Track the highest expected index we've seen so far
+        int highestExpectedIndex = -1;
+        String highestSegmentTag = null;
+
+        // Track which segment types we've already seen (first occurrence)
+        Set<String> seenSegmentTypes = new HashSet<>();
 
         for (Segment segment : actualSegments) {
             String tag = segment.getTag();
@@ -347,20 +392,30 @@ public class ComparisonEngine {
                 continue;
             }
 
-            // Check if this segment appears before a segment that should come after it
-            if (expectedIndex < lastExpectedIndex) {
-                resultBuilder.addDifference(Difference.builder()
-                        .segmentTag(tag)
-                        .type(Difference.DifferenceType.SEGMENT_ORDER_MISMATCH)
-                        .lineNumber(segment.getLineNumber())
-                        .expected("Segment " + tag + " should appear before " + lastSegmentTag)
-                        .actual("Segment " + tag + " appears after " + lastSegmentTag)
-                        .description("Segment " + tag + " is out of order (should appear before " + lastSegmentTag + ")")
-                        .build());
+            // Only check order for FIRST occurrence of each segment type.
+            // Repeat occurrences are skipped because in EDIFACT, segments like DTM
+            // appear in multiple segment groups (e.g., header-level DTM and detail-level DTM).
+            if (seenSegmentTypes.contains(tag)) {
+                continue;
             } else {
-                // Update last seen position only if we're moving forward in expected order
-                lastExpectedIndex = expectedIndex;
-                lastSegmentTag = tag;
+                // First occurrence of this segment type
+                seenSegmentTypes.add(tag);
+
+                // Check if first occurrence is in order
+                if (expectedIndex < highestExpectedIndex) {
+                    resultBuilder.addDifference(Difference.builder()
+                            .segmentTag(tag)
+                            .type(Difference.DifferenceType.SEGMENT_ORDER_MISMATCH)
+                            .lineNumber(segment.getLineNumber())
+                            .expected("Segment " + tag + " should appear before " + highestSegmentTag)
+                            .actual("Segment " + tag + " appears after " + highestSegmentTag)
+                            .description("Segment " + tag + " is out of order (should appear before " + highestSegmentTag + ")")
+                            .build());
+                } else {
+                    // Update highest seen position
+                    highestExpectedIndex = expectedIndex;
+                    highestSegmentTag = tag;
+                }
             }
         }
     }
