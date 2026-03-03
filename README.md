@@ -8,14 +8,16 @@ A lightweight Java library for validating EDIFACT, ANSI X12, and XML messages in
 
 1. [Add to Your Project](#1-add-to-your-project)
 2. [Configure](#2-configure)
-3. [Create a YAML Template](#3-create-a-yaml-template)
-4. [Write a Test](#4-write-a-test)
-5. [Run and View Reports](#5-run-and-view-reports)
-6. [YAML Template Reference](#6-yaml-template-reference)
-7. [Report Generation Options](#7-report-generation-options)
-8. [Combined Report](#8-combined-report)
-9. [Configuration Reference](#9-configuration-reference)
-10. [Project Structure](#10-project-structure)
+3. [Quick Start — EdiVerifier](#3-quick-start--ediverifier)
+4. [Generate Templates Automatically](#4-generate-templates-automatically)
+5. [Create a YAML Template Manually](#5-create-a-yaml-template-manually)
+6. [Advanced: Low-Level API](#6-advanced-low-level-api)
+7. [Run and View Reports](#7-run-and-view-reports)
+8. [YAML Template Reference](#8-yaml-template-reference)
+9. [Report Generation Options](#9-report-generation-options)
+10. [Combined Report](#10-combined-report)
+11. [Configuration Reference](#11-configuration-reference)
+12. [Project Structure](#12-project-structure)
 
 ---
 
@@ -71,16 +73,200 @@ comparison.case.sensitive=true
 comparison.detect.unexpected.segments=true
 
 # Validate that segments appear in template-defined order
-comparison.validate.segment.order=true
+comparison.validate.segment.order=false
 ```
 
-All properties have sensible defaults, so this file is optional. If absent, the library uses the defaults shown above.
+All properties have sensible defaults — this file is optional.
 
 ---
 
-## 3. Create a YAML Template
+## 3. Quick Start — EdiVerifier
 
-A template defines **what to validate** in an EDI message. Create it under `src/test/resources/rules/`.
+`EdiVerifier` is the recommended entry point. It wraps parsing, rule loading, comparison, and reporting behind a single fluent API — no boilerplate required.
+
+### Single file
+
+```java
+import com.edi.comparison.EdiVerifier;
+
+// Three lines: load template → verify file → assert
+EdiVerifier.with("rules/booking-template.yaml")
+        .verify("output/booking-001.edi")
+        .assertPassed();                       // throws AssertionError if failed
+```
+
+### Batch — 500+ files in parallel
+
+```java
+import com.edi.comparison.EdiVerifier;
+import com.edi.comparison.batch.BatchResult;
+
+BatchResult result = EdiVerifier.with("rules/booking-template.yaml")
+        .verifyFolder("output/files/");
+
+System.out.println(result.getSummary());
+// → "500 files: 498 passed, 2 failed, 0 errored (12.3s)"
+
+result.generateReport("target/reports/");     // combined HTML report
+result.assertAllPassed();                      // throws with full failure list
+```
+
+### With options
+
+```java
+BatchResult result = EdiVerifier.with("rules/template.yaml")
+        .parallelism(8)               // threads — defaults to available CPU cores
+        .filePattern("*.edi")         // glob filter for filenames
+        .format(FileFormat.EDIFACT)   // skip auto-detection (faster for uniform batches)
+        .recursive(true)              // walk subdirectories
+        .verifyFolder("output/files/");
+```
+
+### Explicit file list (e.g. from FTP download)
+
+```java
+List<Path> files = ftpClient.downloadedFiles();   // or any List<Path>
+
+BatchResult result = EdiVerifier.with("rules/template.yaml")
+        .verifyFiles(files);
+
+result.assertAllPassed();
+```
+
+### Dynamic field values (test data)
+
+```java
+EdiVerifier.with("rules/template.yaml")
+        .testData("bookingNumber", "BK123")      // referenced in YAML as: source: testData.bookingNumber
+        .verify("output/booking.edi")
+        .assertPassed();
+```
+
+### Inspect failures
+
+```java
+BatchResult result = EdiVerifier.with("rules/template.yaml")
+        .verifyFolder("output/");
+
+// Per-file detail
+result.getFailedFiles().forEach(f ->
+        System.out.println(f.getFileName() + ": " + f.getDifferenceCount() + " diff(s)"));
+
+// Top 5 error types across all files — find systemic issues fast
+result.getMostCommonErrors(5).forEach((type, count) ->
+        System.out.println(type + ": " + count + " occurrences"));
+```
+
+### Template on classpath (test resources)
+
+```java
+// Loads from src/test/resources/rules/booking-template.yaml
+EdiVerifier.withClasspath("rules/booking-template.yaml")
+        .verifyFolder("output/files/");
+```
+
+---
+
+## 4. Generate Templates Automatically
+
+Writing YAML templates by hand for complex EDI files (hundreds of segments) is slow and error-prone. `TemplateGenerator` generates a ready-to-use template from a golden/reference file in seconds.
+
+### From a single golden file
+
+```java
+import com.edi.comparison.template.TemplateGenerator;
+
+// Generates template and saves it — done
+TemplateGenerator.from("samples/golden-booking.edi")
+        .saveTo("rules/booking-template.yaml");
+```
+
+That's it. Open the generated file, review it, tweak if needed, then use it.
+
+### Generation modes
+
+| Mode | What's included | Best for |
+|------|----------------|----------|
+| `MINIMAL` | Segment names only | Quick starting point to build on |
+| `STRUCTURE` *(default)* | Segment names + exact occurrence counts | Checking structure is identical |
+| `FULL` | Structure + field rules with smart classification | Full regression testing |
+
+```java
+import com.edi.comparison.template.TemplateGenerator.GenerationMode;
+
+// Default (STRUCTURE)
+TemplateGenerator.from("samples/golden.edi").saveTo("rules/template.yaml");
+
+// FULL — includes field-level validation rules
+TemplateGenerator.from("samples/golden.edi")
+        .mode(GenerationMode.FULL)
+        .saveTo("rules/template-full.yaml");
+
+// MINIMAL — just segment names
+TemplateGenerator.from("samples/golden.edi")
+        .mode(GenerationMode.MINIMAL)
+        .saveTo("rules/template-minimal.yaml");
+```
+
+### Learn from a folder of files (best for large batches)
+
+Instead of learning from a single file, scan the whole batch:
+- Segments present in **every** file → `required: true`
+- Segments present in **some** files → `required: false`
+- The **most common** occurrence count → `expected_count`
+
+```java
+// Scan all files in the folder
+TemplateGenerator.learnFrom("output/files/")
+        .saveTo("rules/learned-template.yaml");
+
+// With file filter
+TemplateGenerator.learnFrom("output/files/", "*.edi")
+        .saveTo("rules/learned-template.yaml");
+
+// From an explicit list
+TemplateGenerator.learnFrom(listOfPaths)
+        .saveTo("rules/learned-template.yaml");
+```
+
+### FULL mode — smart field classification
+
+In `FULL` mode, field validation types are chosen automatically:
+
+| Field value example | Generated validation |
+|---------------------|----------------------|
+| `"CN"`, `"340"`, `"9"` (short code, ≤4 chars) | `exact_match: "CN"` |
+| `"20260207"` (8 digits) | `pattern_match: "^[0-9]{8}$"` |
+| `"202602121430"` (12 digits) | `pattern_match: "^[0-9]{12}$"` |
+| `"BOOKING123456"` (dynamic reference) | `exists` |
+| Multi-occurrence segment fields | `exists` (values differ per record) |
+
+Review FULL mode output before use — some `exact_match` fields may need to be changed to `exists` for values that vary across files.
+
+### Typical workflow
+
+```java
+// Step 1: generate a template skeleton
+TemplateGenerator.from("samples/golden.edi")
+        .mode(GenerationMode.STRUCTURE)
+        .saveTo("rules/my-template.yaml");
+
+// Step 2: open my-template.yaml in an editor
+//   - add field rules for fields you care about
+//   - change required: true/false as needed
+//   - adjust expected_count if needed
+
+// Step 3: verify your entire batch
+EdiVerifier.with("rules/my-template.yaml")
+        .verifyFolder("output/files/")
+        .assertAllPassed();
+```
+
+---
+
+## 5. Create a YAML Template Manually
+
+If you prefer to write templates by hand (or edit a generated one), create them under `src/test/resources/rules/`.
 
 ### Minimal Example (`rules/simple-booking.yaml`)
 
@@ -177,7 +363,9 @@ rules:
 
 ---
 
-## 4. Write a Test
+## 6. Advanced: Low-Level API
+
+Use this when you need full control — custom parsers, inbound/outbound comparison, or programmatic rule building. For most use cases, prefer `EdiVerifier` (section 3).
 
 ### Basic Test (JUnit 5)
 
@@ -191,12 +379,6 @@ import com.edi.comparison.parser.EdifactParser;
 import com.edi.comparison.report.HtmlReportGenerator;
 import com.edi.comparison.rule.RuleLoader;
 import com.edi.comparison.rule.RuleSet;
-import org.junit.jupiter.api.Test;
-
-import java.util.HashMap;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class BookingVerificationTest {
 
@@ -206,15 +388,13 @@ class BookingVerificationTest {
         ComparisonConfig config = ComparisonConfig.load();
         RuleSet template = new RuleLoader().loadFromResource("rules/simple-booking.yaml");
 
-        // 2. Parse the EDI message you want to validate
+        // 2. Parse the EDI message
         EdifactParser parser = new EdifactParser();
         String ediContent = "BGM+340+BOOKING123+9'\nNAD+CZ+SHIPPER001::92'";
         Message outbound = parser.parse(ediContent);
 
-        // 3. Build context with test data (values referenced by 'source: testData.xxx')
-        Map<String, Object> testData = new HashMap<>();
-        testData.put("bookingNumber", "BOOKING123");
-
+        // 3. Build context
+        Map<String, Object> testData = Map.of("bookingNumber", "BOOKING123");
         ComparisonContext context = ComparisonContext.builder()
                 .testData(testData)
                 .addConfig("detect_unexpected_segments", config.isDetectUnexpectedSegments())
@@ -225,8 +405,8 @@ class BookingVerificationTest {
         ComparisonResult result = engine.compare(null, outbound);
 
         // 5. Generate HTML report
-        HtmlReportGenerator report = new HtmlReportGenerator();
-        String reportPath = report.generate(result, config.getReportBaseDir(), "booking-test");
+        String reportPath = new HtmlReportGenerator()
+                .generate(result, config.getReportBaseDir(), "booking-test");
 
         // 6. Assert
         assertTrue(result.isSuccess(), "Verification failed. Report: " + reportPath);
@@ -234,21 +414,44 @@ class BookingVerificationTest {
 }
 ```
 
-### Loading EDI from a File (e.g. downloaded from FTP)
+### Auto-Detect Format
+
+```java
+import com.edi.comparison.parser.AutoDetectParser;
+
+// Works for EDIFACT, ANSI X12, and XML — format detected from content
+FileParser parser = new AutoDetectParser();
+Message msg = parser.parse(new File("booking.edi"));    // format detected automatically
+Message msg2 = parser.parse(fileContentString);          // also accepts String
+```
+
+### Explicit Parser Selection
+
+```java
+// EDIFACT
+Message msg = new EdifactParser().parse(content);
+
+// ANSI X12
+Message msg = new AnsiX12Parser().parse(content);
+
+// XML
+Message msg = new XmlParser().parse(content);
+```
+
+### Loading EDI from a File
 
 ```java
 // From classpath resource
 try (InputStream is = getClass().getClassLoader().getResourceAsStream("samples/outbounds/my-file")) {
-    String content = new String(is.readAllBytes());
-    Message outbound = parser.parse(content);
+    Message outbound = new AutoDetectParser().parse(is);
 }
 
 // From filesystem
 String content = Files.readString(Path.of("/path/to/edi-file.edi"));
-Message outbound = parser.parse(content);
+Message outbound = new AutoDetectParser().parse(content);
 ```
 
-### Using Inbound Reference Values
+### Inbound → Outbound Comparison
 
 If you want to check that outbound field values match the inbound:
 
@@ -260,9 +463,8 @@ If you want to check that outbound field values match the inbound:
 ```
 
 ```java
-// In your test, pass both messages
-Message inbound = parser.parse(inboundContent);
-Message outbound = parser.parse(outboundContent);
+Message inbound  = new AutoDetectParser().parse(inboundContent);
+Message outbound = new AutoDetectParser().parse(outboundContent);
 
 ComparisonContext context = ComparisonContext.builder()
         .testData(testData)
@@ -274,7 +476,7 @@ ComparisonResult result = engine.compare(inbound, outbound);
 
 ---
 
-## 5. Run and View Reports
+## 7. Run and View Reports
 
 ### Run Tests
 
@@ -296,8 +498,8 @@ Reports are saved under the configured `report.base.dir` (default: `target/repor
 ```
 target/reports/
   booking-test/
-    report_20260208_143000.html       <-- individual report
-  combined_report_20260208_143000.html  <-- combined report (if using @AfterAll)
+    report_20260208_143000.html         <-- individual report
+  combined_report_20260208_143000.html  <-- combined report (if generated)
 ```
 
 Open any `.html` file in your browser:
@@ -321,7 +523,7 @@ open target/reports/booking-test/report_20260208_143000.html
 
 ---
 
-## 6. YAML Template Reference
+## 8. YAML Template Reference
 
 ### Segment-Level Options
 
@@ -368,7 +570,7 @@ The `source` property pulls expected values dynamically:
 
 ---
 
-## 7. Report Generation Options
+## 9. Report Generation Options
 
 ```java
 HtmlReportGenerator report = new HtmlReportGenerator();
@@ -391,9 +593,19 @@ String html = report.generateHtml(result);
 
 All options create parent directories automatically.
 
+### Batch Report (via EdiVerifier)
+
+```java
+BatchResult result = EdiVerifier.with("rules/template.yaml")
+        .verifyFolder("output/files/");
+
+// Generates a combined HTML report for all files in the batch
+String reportPath = result.generateReport("target/reports/");
+```
+
 ---
 
-## 8. Combined Report
+## 10. Combined Report
 
 When you have multiple test scenarios, generate a single dashboard page showing all results.
 
@@ -411,21 +623,17 @@ class MyVerificationTests {
 
     @Test
     void testScenarioA() throws Exception {
-        // ... run comparison ...
         ComparisonResult result = engine.compare(null, outbound);
 
         // Add to collection (3rd argument = did this test pass?)
         scenarioResults.add(new ScenarioResult("Scenario A", result, result.isSuccess()));
 
-        // Individual report still generated
         report.generate(result, config.getReportBaseDir(), "scenario-a");
-
         assertTrue(result.isSuccess());
     }
 
     @Test
     void testExpectedFailure() throws Exception {
-        // ... run comparison that is expected to fail ...
         ComparisonResult result = engine.compare(null, outbound);
 
         // For expected-failure tests, pass !result.isSuccess() as the 'passed' flag
@@ -472,7 +680,7 @@ generator.generateCombined(scenarioResults, myWriter);
 
 ---
 
-## 9. Configuration Reference
+## 11. Configuration Reference
 
 All properties in `edi-comparison.properties`:
 
@@ -500,36 +708,74 @@ ComparisonConfig config = ComparisonConfig.fromProperties(myProperties);
 
 ---
 
-## 10. Project Structure
-
-When integrated into your test project, the layout looks like this:
+## 12. Project Structure
 
 ```
-your-project/
+edi-comparison-library/
+  src/main/java/com/edi/comparison/
+    EdiVerifier.java                    ← main entry point (start here)
+    batch/
+      BatchResult.java                  ← aggregated result for folder/list verification
+      FileResult.java                   ← per-file result
+    template/
+      TemplateGenerator.java            ← auto-generate YAML templates from EDI files
+    parser/
+      AutoDetectParser.java             ← detects EDIFACT / ANSI X12 / XML automatically
+      EdifactParser.java
+      AnsiX12Parser.java
+      XmlParser.java
+      FileParser.java                   ← parser interface
+    core/
+      ComparisonEngine.java             ← comparison logic
+      ComparisonContext.java            ← runtime context (test data, config)
+    model/
+      Message.java / Segment.java / Field.java
+      ComparisonResult.java / Difference.java
+      FileFormat.java
+    rule/
+      RuleLoader.java                   ← loads YAML templates
+      RuleSet.java / ComparisonRule.java / FieldRule.java
+    report/
+      HtmlReportGenerator.java
+    config/
+      ComparisonConfig.java
+
+your-test-project/
   src/test/
     java/
       com/yourcompany/tests/
-        BookingVerificationTest.java        <-- your tests
+        BookingVerificationTest.java    ← your tests
     resources/
-      edi-comparison.properties             <-- library config
+      edi-comparison.properties         ← library config (optional)
       rules/
-        simple-booking.yaml                 <-- your YAML templates
-        booking-confirmation.yaml
+        booking-template.yaml           ← YAML templates (hand-written or generated)
       samples/
         outbounds/
-          my-outbound-file.edi              <-- EDI files to validate
-  target/reports/                           <-- generated reports (gitignored)
-    booking-test/
-      report_20260208_143000.html
+          booking-001.edi               ← EDI files to validate
+  target/reports/                       ← generated reports (gitignore this)
     combined_report_20260208_143000.html
 ```
 
 ---
 
-## Quick Checklist
+## Quick Reference
+
+### Choose your workflow
+
+| Scenario | Recommended approach |
+|----------|---------------------|
+| Single file verification | `EdiVerifier.with(...).verify(...).assertPassed()` |
+| Batch — 500+ files | `EdiVerifier.with(...).verifyFolder(...).assertAllPassed()` |
+| Don't have a template yet | `TemplateGenerator.from(goldenFile).saveTo(...)` |
+| Learn template from many files | `TemplateGenerator.learnFrom(folder).saveTo(...)` |
+| Mixed EDIFACT + X12 + XML in one folder | `EdiVerifier` with default `AutoDetectParser` |
+| Full control / inbound comparison | Low-level API (section 6) |
+
+### Quick Checklist
 
 1. Add the library dependency to your `pom.xml`
 2. Create `edi-comparison.properties` in `src/test/resources/` (optional)
-3. Create a YAML template in `src/test/resources/rules/`
-4. Write a JUnit test: load template, parse EDI, build context, compare, generate report
-5. Run `mvn test` and open the HTML report in your browser
+3. Generate a YAML template: `TemplateGenerator.from("golden.edi").saveTo("rules/template.yaml")`
+4. Review/edit the template as needed
+5. Write a test: `EdiVerifier.with("rules/template.yaml").verifyFolder("output/").assertAllPassed()`
+6. Run `mvn test` and open the HTML report in your browser
