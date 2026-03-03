@@ -1020,6 +1020,8 @@ your-test-project/
       config/
         edi-locations.yaml              ← alias → path mapping  (SFTP remote or local)
         sftp-environments.yaml          ← SFTP hosts + credentials per env  (SFTP mode only)
+        edi-local.yaml.template         ← committed template; copy to edi-local.yaml
+        edi-local.yaml                  ← gitignored per-developer override  (active: cvt)
       testdata/
         SI_Min_Edifact.edi              ← EDI input files used in "When" step
       templates/

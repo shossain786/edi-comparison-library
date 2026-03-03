@@ -52,11 +52,13 @@ import java.util.stream.Stream;
  * </ul>
  *
  * <h3>Active environment</h3>
- * <p>In SFTP mode, the environment (beta/cvt/prod) is selected via:
+ * <p>In SFTP mode, the environment (beta/cvt/prod) is selected via (highest priority first):
  * <ol>
- *   <li>{@code -Dedi.env=cvt} JVM system property</li>
- *   <li>{@code EDI_ENV=cvt} OS environment variable</li>
- *   <li>{@code active} field in {@code sftp-environments.yaml}</li>
+ *   <li>{@code -Dedi.env=cvt} JVM system property — Maven CLI / CI pipeline</li>
+ *   <li>{@code EDI_ENV=cvt} OS environment variable — persistent shell/IDE setting</li>
+ *   <li>{@code active:} in {@code config/edi-local.yaml} — <b>gitignored per-developer
+ *       override</b>, used when running feature files directly from the IDE without JVM args</li>
+ *   <li>{@code active:} in {@code config/sftp-environments.yaml} — committed team default</li>
  * </ol>
  */
 public class EdiTestContext implements Closeable {
