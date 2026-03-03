@@ -60,13 +60,27 @@ public class LocationRegistry {
     }
 
     /**
-     * Resolves an alias to an absolute {@link Path}.
+     * Resolves an alias to an absolute {@link Path} (local filesystem mode).
      *
      * @param alias the alias name as defined in the YAML config
-     * @return resolved directory path
+     * @return resolved local directory path
      * @throws IllegalArgumentException if the alias is not defined
      */
     public Path resolve(String alias) {
+        return Paths.get(resolveString(alias));
+    }
+
+    /**
+     * Resolves an alias to its raw path string.
+     *
+     * <p>Use this when the path is a remote SFTP path (not a local filesystem path).
+     * For local paths, prefer {@link #resolve(String)} which returns a typed {@link Path}.
+     *
+     * @param alias the alias name as defined in the YAML config
+     * @return path string exactly as written in the config (local or remote)
+     * @throws IllegalArgumentException if the alias is not defined
+     */
+    public String resolveString(String alias) {
         String pathStr = locations.get(alias);
         if (pathStr == null) {
             throw new IllegalArgumentException(
@@ -74,7 +88,7 @@ public class LocationRegistry {
                     + "Known aliases: " + locations.keySet()
                     + ". Check config/edi-locations.yaml.");
         }
-        return Paths.get(pathStr);
+        return pathStr;
     }
 
     /**

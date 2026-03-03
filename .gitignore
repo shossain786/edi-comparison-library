@@ -38,6 +38,9 @@ reports/
 *.html
 *.json
 
+# EDI library — per-developer local override (copy from edi-local.yaml.template)
+src/test/resources/config/edi-local.yaml
+
 # Temporary files
 *.tmp
 *.bak

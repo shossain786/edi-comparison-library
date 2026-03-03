@@ -1,0 +1,39 @@
+# SFTP environment configuration
+#
+# Maps environment names (beta / cvt / prod) to SFTP server connection details.
+#
+# Active environment is selected in this priority order:
+#   1. JVM system property:   -Dedi.env=cvt
+#   2. OS environment variable: EDI_ENV=cvt
+#   3. The 'active' field below
+#
+# Passwords MUST use ${ENV_VAR_NAME} references — never store literals here.
+# Set the corresponding environment variable before running tests:
+#
+#   Windows:  set SFTP_BETA_PASSWORD=yourpassword
+#   Linux/Mac: export SFTP_BETA_PASSWORD=yourpassword
+#   CI/CD:    configure as a secret environment variable in your pipeline
+#
+# ─── IMPORTANT: Add this file to .gitignore if it contains real host details ───
+
+active: beta
+
+environments:
+
+  beta:
+    host:     10.0.1.100          # Replace with your beta SFTP server IP or hostname
+    port:     22
+    username: edi_test
+    password: ${SFTP_BETA_PASSWORD}
+
+  cvt:
+    host:     10.0.2.100          # Replace with your CVT SFTP server IP or hostname
+    port:     22
+    username: edi_test
+    password: ${SFTP_CVT_PASSWORD}
+
+  prod:
+    host:     10.0.3.100          # Replace with your prod SFTP server IP or hostname
+    port:     22
+    username: edi_test
+    password: ${SFTP_PROD_PASSWORD}

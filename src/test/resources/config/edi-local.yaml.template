@@ -1,0 +1,28 @@
+# Per-developer local environment override
+#
+# This file lets you pick a default SFTP environment when running tests
+# directly from the IDE (right-click feature file → Run) without passing
+# any JVM arguments.
+#
+# ─── HOW TO USE ───────────────────────────────────────────────────────────────
+#
+#   1. Copy this file to:  config/edi-local.yaml
+#   2. Set the environment you want as your IDE default
+#   3. config/edi-local.yaml is gitignored — your change stays local
+#
+# ─── PRIORITY ORDER ───────────────────────────────────────────────────────────
+#
+#   1. -Dedi.env=cvt          JVM system property (Maven CLI / CI pipeline)
+#   2. EDI_ENV=cvt            OS environment variable
+#   3. active: here           ← This file (IDE run without JVM args)
+#   4. active: in sftp-environments.yaml   (committed team default)
+#
+# ─── THIS FILE DOES NOT CONTAIN CREDENTIALS ───────────────────────────────────
+#
+# Credentials (passwords) remain in environment variables referenced by
+# sftp-environments.yaml as ${SFTP_BETA_PASSWORD}, ${SFTP_CVT_PASSWORD}, etc.
+# Set those variables once in your shell profile or IDE environment settings.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+active: beta   # change to: cvt | prod | beta

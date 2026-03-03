@@ -25,6 +25,7 @@
         <junit.version>5.10.0</junit.version>
         <slf4j.version>2.0.7</slf4j.version>
         <cucumber.version>7.15.0</cucumber.version>
+        <jsch.version>0.2.16</jsch.version>
     </properties>
 
     <dependencies>
@@ -103,6 +104,13 @@
             <artifactId>cucumber-testng</artifactId>
             <version>${cucumber.version}</version>
             <scope>test</scope>
+        </dependency>
+
+        <!-- SFTP client for remote file drop and pick -->
+        <dependency>
+            <groupId>com.github.mwiede</groupId>
+            <artifactId>jsch</artifactId>
+            <version>${jsch.version}</version>
         </dependency>
     </dependencies>
 

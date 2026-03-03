@@ -176,15 +176,21 @@ public class EdiStepDefinitions {
     // =========================================================================
 
     /**
-     * Runs after every scenario. Generates an HTML report and fails the scenario
-     * if any verification errors or outbound differences were detected.
+     * Runs after every scenario.
+     * <ol>
+     *   <li>Generates an HTML report to {@value #REPORT_OUTPUT_DIR}.</li>
+     *   <li>Closes the SFTP connection (if open) and cleans up temp files.</li>
+     *   <li>Fails the scenario if any verification errors or outbound differences
+     *       were detected.</li>
+     * </ol>
      *
      * @param scenario Cucumber scenario metadata (name, status, etc.)
      */
     @After
-    public void generateReport(Scenario scenario) {
+    public void afterScenario(Scenario scenario) {
         BatchResult batchResult = ctx.buildBatchResult();
 
+        // 1. Write HTML report
         if (batchResult.getTotal() > 0) {
             try {
                 String reportPath = batchResult.generateReport(REPORT_OUTPUT_DIR);
@@ -195,6 +201,10 @@ public class EdiStepDefinitions {
             }
         }
 
+        // 2. Close SFTP connection and temp files — always, even if assertions follow
+        ctx.close();
+
+        // 3. Fail scenario if any EDI differences were found
         if (ctx.hasFailures()) {
             StringBuilder message = new StringBuilder("EDI verification failed:\n");
             for (String failure : ctx.getFailures()) {

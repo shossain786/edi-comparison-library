@@ -1,7 +1,15 @@
 # EDI folder location aliases
 #
-# Maps short alias names (used in Gherkin steps) to real filesystem paths.
-# Paths can be absolute or relative to the working directory when tests run.
+# Maps short alias names (used in Gherkin steps) to folder paths.
+#
+# ─── SFTP mode (sftp-environments.yaml present on classpath) ──────────────────
+# Values are treated as REMOTE paths on the SFTP server.
+# The same aliases apply across all environments (beta/cvt/prod) — only the
+# host and credentials differ, configured in sftp-environments.yaml.
+#
+# ─── Local mode (no sftp-environments.yaml) ────────────────────────────────────
+# Values are treated as local filesystem paths. Useful for development/CI
+# without network access.
 #
 # Usage in feature files:
 #   When I drop below input files
@@ -9,20 +17,16 @@
 #   Then I verify below outbounds
 #     | Template Name  | Location                  |
 #     | SI_Min_Edifact | CA2000_304IFT_Min_Archieve |
-#
-# Update the paths below to match your actual environment.
-# Use forward slashes on all platforms (Java handles conversion).
 
 # ─── Inbound folders ──────────────────────────────────────────────────────────
 
-CU2100_Inbound: /opt/edi/inbound/cu2100
+CU2100_Inbound: /edi/inbound/cu2100
 
 # ─── Outbound / archive folders ───────────────────────────────────────────────
 
-CA2000_304IFT_Min_Archieve: /opt/edi/outbound/ca2000/304ift/archive
+CA2000_304IFT_Min_Archieve: /edi/outbound/ca2000/304ift/archive
 
 # ─── Add more aliases as needed ───────────────────────────────────────────────
 
-# Example: Windows paths also work
-# CU2100_Inbound: C:/EDI/Inbound/CU2100
-# CA2000_304IFT_Min_Archieve: C:/EDI/Outbound/CA2000/304IFT/Archive
+# CU3000_Inbound:              /edi/inbound/cu3000
+# CA3000_Outbound_Archieve:    /edi/outbound/ca3000/archive

@@ -283,19 +283,109 @@ For teams using Cucumber BDD, the library ships ready-to-use step definitions th
 
 An `@After` hook automatically generates an HTML report to `target/edi-reports/` after each scenario and fails the scenario if any differences are found.
 
+### Transport mode — SFTP or local filesystem
+
+The library auto-detects the transport mode at startup:
+
+| Config present? | Mode | File drop | Outbound scan |
+|---|---|---|---|
+| `sftp-environments.yaml` on classpath | **SFTP** | uploads to SFTP server | lists + downloads from SFTP server |
+| No SFTP config | **Local** | copies to local folder | scans local folder |
+
+One SFTP connection is opened at the start of each scenario and closed automatically in the `@After` hook.
+
+---
+
 ### Step 1 — Create the location config
 
-Create `src/test/resources/config/edi-locations.yaml` mapping short alias names to real folder paths:
+Create `src/test/resources/config/edi-locations.yaml` mapping alias names to folder paths.
+
+In **SFTP mode** these are remote paths on the server. In **local mode** they are local filesystem paths. The same aliases work for all environments (beta/cvt/prod) — only the host differs.
 
 ```yaml
-# Inbound folders
-CU2100_Inbound:             /opt/edi/inbound/cu2100
+# Inbound folders (SFTP remote path)
+CU2100_Inbound: /edi/inbound/cu2100
 
-# Outbound / archive folders
-CA2000_304IFT_Min_Archieve: /opt/edi/outbound/ca2000/archive
+# Outbound / archive folders (SFTP remote path)
+CA2000_304IFT_Min_Archieve: /edi/outbound/ca2000/304ift/archive
 ```
 
-> Windows paths work too: `C:/EDI/Inbound/CU2100`
+### Step 1b — Configure SFTP environments (SFTP mode only)
+
+Create `src/test/resources/config/sftp-environments.yaml`:
+
+```yaml
+active: beta        # default environment; override with -Dedi.env=cvt
+
+environments:
+
+  beta:
+    host:     10.0.1.100
+    port:     22
+    username: edi_test
+    password: ${SFTP_BETA_PASSWORD}   # resolved from OS environment variable
+
+  cvt:
+    host:     10.0.2.100
+    port:     22
+    username: edi_test
+    password: ${SFTP_CVT_PASSWORD}
+
+  prod:
+    host:     10.0.3.100
+    port:     22
+    username: edi_test
+    password: ${SFTP_PROD_PASSWORD}
+```
+
+**Passwords are never stored in the file** — use `${ENV_VAR}` references and set the variables before running tests:
+
+```bash
+# Linux / Mac / CI pipeline
+export SFTP_BETA_PASSWORD=yourpassword
+export SFTP_CVT_PASSWORD=yourpassword
+
+# Windows
+set SFTP_BETA_PASSWORD=yourpassword
+```
+
+**Switching environments at runtime (Maven / CI):**
+
+```bash
+# Run against CVT
+mvn test -Dtest=EdiCucumberRunner -Dedi.env=cvt
+
+# Run against prod
+mvn test -Dtest=EdiCucumberRunner -Dedi.env=prod
+```
+
+**Switching environments when running from the IDE (no JVM args):**
+
+Copy the template and edit your personal default — this file is gitignored so it never affects teammates:
+
+```bash
+# create your local override (one-time setup)
+cp src/test/resources/config/edi-local.yaml.template \
+   src/test/resources/config/edi-local.yaml
+```
+
+Then edit `edi-local.yaml`:
+
+```yaml
+# config/edi-local.yaml  — gitignored, per-developer
+active: cvt   # your personal default when right-clicking a feature file → Run
+```
+
+**Full priority order** (highest to lowest):
+
+| Priority | Source | Typical use |
+|---|---|---|
+| 1 | `-Dedi.env=cvt` JVM system property | Maven CLI, CI/CD pipeline |
+| 2 | `EDI_ENV=cvt` OS environment variable | Persistent shell/IDE setting |
+| 3 | `active:` in `config/edi-local.yaml` | **IDE run without JVM args** |
+| 4 | `active:` in `config/sftp-environments.yaml` | Committed team default |
+
+> The local override file only needs an `active:` field. Credentials always come from environment variables, never from this file.
 
 ### Step 2 — Add test files and templates
 
@@ -414,7 +504,10 @@ public class MyCustomSteps {
 ```
 src/test/resources/
   config/
-    edi-locations.yaml          ← alias → folder path mapping  (required)
+    edi-locations.yaml          ← alias → path mapping (required; SFTP remote or local paths)
+    sftp-environments.yaml      ← SFTP hosts + credentials per env (committed)
+    edi-local.yaml.template     ← template to copy — explains the local override
+    edi-local.yaml              ← gitignored per-developer override (active: cvt)
   testdata/
     SI_Min_Edifact.edi          ← EDI input files used in "When" step
   templates/
@@ -887,8 +980,13 @@ edi-comparison-library/
       FileResult.java                   ← per-file result
     cucumber/
       LocationRegistry.java             ← loads alias → path mappings from YAML config
-      EdiTestContext.java               ← PicoContainer scenario context (drop + verify)
+      EdiTestContext.java               ← PicoContainer scenario context (drop + verify, SFTP-aware)
       EdiStepDefinitions.java           ← built-in Cucumber steps (When / And / Then)
+    sftp/
+      SftpEnvironmentRegistry.java      ← loads sftp-environments.yaml, selects active env
+      SftpClient.java                   ← JSch-based SFTP upload / list / download
+      SftpConfig.java                   ← connection params for one environment
+      SftpRemoteFile.java               ← metadata record for a remote file
     template/
       TemplateGenerator.java            ← auto-generate YAML templates from EDI files
     parser/
@@ -920,7 +1018,8 @@ your-test-project/
         BookingVerificationTest.java    ← non-Cucumber tests (optional)
     resources/
       config/
-        edi-locations.yaml              ← alias → real folder path mapping  (Cucumber)
+        edi-locations.yaml              ← alias → path mapping  (SFTP remote or local)
+        sftp-environments.yaml          ← SFTP hosts + credentials per env  (SFTP mode only)
       testdata/
         SI_Min_Edifact.edi              ← EDI input files used in "When" step
       templates/
@@ -959,12 +1058,16 @@ your-test-project/
 5. Write a test: `EdiVerifier.with("rules/template.yaml").verifyFolder("output/").assertAllPassed()`
 6. Run `mvn test` and open the HTML report in your browser
 
-### Quick Checklist — Cucumber
+### Quick Checklist — Cucumber (SFTP)
 
 1. Add the library dependency to your `pom.xml`
-2. Create `src/test/resources/config/edi-locations.yaml` with your folder aliases
-3. Place EDI input files under `src/test/resources/testdata/`
-4. Generate templates: `TemplateGenerator.from("golden.edi").saveTo("src/test/resources/templates/MyTemplate.yaml")`
-5. Write a `.feature` file using the built-in steps (see section 5)
-6. Copy `EdiCucumberRunner.java` into your project and point it at your features folder
-7. Run `mvn test -Dtest=EdiCucumberRunner` and check `target/edi-reports/`
+2. Create `config/edi-locations.yaml` — alias → SFTP remote path mapping
+3. Create `config/sftp-environments.yaml` — host + `${ENV_VAR}` password per environment
+4. Set password env vars: `export SFTP_BETA_PASSWORD=...`
+5. Copy `edi-local.yaml.template` → `edi-local.yaml` and set your IDE default environment
+6. Place EDI input files under `src/test/resources/testdata/`
+7. Generate templates: `TemplateGenerator.from("golden.edi").saveTo("src/test/resources/templates/MyTemplate.yaml")`
+8. Write a `.feature` file using the built-in steps (see section 5)
+9. Copy `EdiCucumberRunner.java` into your project
+10. Run from **Maven**: `mvn test -Dtest=EdiCucumberRunner -Dedi.env=cvt`
+11. Run from **IDE**: right-click the feature file → Run (picks env from `edi-local.yaml`)
