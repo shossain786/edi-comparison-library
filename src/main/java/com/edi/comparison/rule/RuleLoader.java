@@ -1,5 +1,7 @@
 package com.edi.comparison.rule;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
 import org.yaml.snakeyaml.introspector.BeanAccess;
@@ -30,6 +32,8 @@ import java.util.Map;
  * </pre>
  */
 public class RuleLoader {
+
+    private static final Logger log = LoggerFactory.getLogger(RuleLoader.class);
 
     private final Yaml yaml;
 
@@ -91,6 +95,7 @@ public class RuleLoader {
             throw new FileNotFoundException("Rule file not found: " + filePath);
         }
         
+        log.debug("Loading rules from file: {}", filePath);
         try (InputStream inputStream = Files.newInputStream(Paths.get(filePath))) {
             return loadFromInputStream(inputStream);
         }
@@ -109,11 +114,12 @@ public class RuleLoader {
             throw new IllegalArgumentException("Resource path cannot be null or empty");
         }
         
+        log.debug("Loading rules from classpath: {}", resourcePath);
         InputStream inputStream = getClass().getClassLoader().getResourceAsStream(resourcePath);
         if (inputStream == null) {
             throw new FileNotFoundException("Resource not found: " + resourcePath);
         }
-        
+
         try {
             return loadFromInputStream(inputStream);
         } finally {
@@ -139,8 +145,15 @@ public class RuleLoader {
                 throw new RuleLoadException("Failed to parse YAML - file is empty or invalid");
             }
             validateRuleSet(ruleSet);
+            log.info("Loaded rule set: messageType={}, {} rule(s)",
+                    ruleSet.getMessageType(), ruleSet.getRuleCount());
             return ruleSet;
-        } catch (Exception e) {
+        } catch (RuleLoadException e) {
+            log.error("Failed to load rules: {}", e.getMessage());
+            throw e;
+        } catch (RuntimeException e) {
+            // Catches YAMLException and other unexpected runtime failures from SnakeYAML
+            log.error("Failed to load rules: {}", e.getMessage());
             throw new RuleLoadException("Failed to load rules: " + e.getMessage(), e);
         }
     }

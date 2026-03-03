@@ -2,6 +2,9 @@ package com.edi.comparison.parser;
 
 import com.edi.comparison.model.*;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -22,7 +25,9 @@ import java.util.List;
  * <p>This parser is stateless and thread-safe.
  */
 public class AnsiX12Parser implements FileParser {
-    
+
+    private static final Logger log = LoggerFactory.getLogger(AnsiX12Parser.class);
+
     private static final String DEFAULT_SEGMENT_DELIMITER = "~";
     private static final String DEFAULT_ELEMENT_DELIMITER = "\\*";
     private static final String DEFAULT_COMPONENT_DELIMITER = ":";
@@ -86,7 +91,8 @@ public class AnsiX12Parser implements FileParser {
         if (parsedSegments.isEmpty()) {
             throw new ParseException("No valid segments found in content");
         }
-        
+
+        log.debug("Parsed {} ANSI X12 segment(s), messageType={}", parsedSegments.size(), messageType);
         return Message.builder()
             .fileFormat(FileFormat.ANSI_X12)
             .messageType(messageType)

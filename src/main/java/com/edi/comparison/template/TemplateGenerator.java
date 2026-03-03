@@ -5,6 +5,10 @@ import com.edi.comparison.model.Message;
 import com.edi.comparison.model.Segment;
 import com.edi.comparison.parser.AutoDetectParser;
 import com.edi.comparison.parser.FileParser;
+import com.edi.comparison.parser.ParseException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -87,6 +91,8 @@ import java.util.stream.Stream;
  * </ul>
  */
 public class TemplateGenerator {
+
+    private static final Logger log = LoggerFactory.getLogger(TemplateGenerator.class);
 
     /** Standard envelope segments excluded from generated templates. */
     private static final Set<String> ENVELOPE_SEGMENTS = Set.of(
@@ -475,7 +481,11 @@ public class TemplateGenerator {
          * @return YAML string ready to save or inspect
          */
         public String generate() {
-            return generateYaml(message, mode, sourceName, null);
+            log.info("Generating {} template from: {}", mode, sourceName);
+            String yaml = generateYaml(message, mode, sourceName, null);
+            log.info("Template generated: {} segment rule(s)", message.getSegments().stream()
+                    .map(s -> s.getTag()).distinct().filter(t -> !ENVELOPE_SEGMENTS.contains(t)).count());
+            return yaml;
         }
 
         /**
@@ -498,6 +508,7 @@ public class TemplateGenerator {
             Path parent = outputPath.getParent();
             if (parent != null) Files.createDirectories(parent);
             Files.writeString(outputPath, generate());
+            log.info("Template saved to: {}", outputPath.toAbsolutePath());
         }
     }
 
@@ -557,15 +568,16 @@ public class TemplateGenerator {
             if (files.isEmpty()) {
                 throw new IllegalStateException("No files found to learn from");
             }
+            log.info("Learning {} template from {} file(s) in: {}", mode, files.size(), sourceName);
             FileParser parser = new AutoDetectParser();
             LinkedHashMap<String, SegmentStats> tagStats = new LinkedHashMap<>();
             int parsed = 0;
+            int skipped = 0;
 
             for (Path file : files) {
                 try {
                     String content = Files.readString(file);
                     Message message = parser.parse(content);
-                    // group segments by tag for this file
                     LinkedHashMap<String, List<Segment>> byTag = new LinkedHashMap<>();
                     for (Segment s : message.getSegments()) {
                         if (!ENVELOPE_SEGMENTS.contains(s.getTag())) {
@@ -577,8 +589,10 @@ public class TemplateGenerator {
                                 .addOccurrence(e.getValue());
                     }
                     parsed++;
-                } catch (Exception e) {
-                    // Skip unparseable files silently — they'll be caught by EdiVerifier
+                    log.debug("  Scanned [{}/{}]: {}", parsed, files.size(), file.getFileName());
+                } catch (IOException | ParseException | RuntimeException e) {
+                    skipped++;
+                    log.warn("  Skipped (unparseable): {} — {}", file.getFileName(), e.getMessage());
                 }
             }
 
@@ -586,6 +600,8 @@ public class TemplateGenerator {
                 throw new IllegalStateException("No files could be parsed in: " + sourceName);
             }
 
+            log.info("Learn complete: {}/{} files parsed, {} segment type(s) found, {} skipped",
+                    parsed, files.size(), tagStats.size(), skipped);
             return generateBatchYaml(tagStats, mode, parsed,
                     sourceName + " (" + parsed + " files)");
         }

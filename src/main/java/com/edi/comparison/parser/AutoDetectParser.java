@@ -2,6 +2,9 @@ package com.edi.comparison.parser;
 
 import com.edi.comparison.model.Message;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,6 +32,8 @@ import java.nio.file.Files;
  */
 public class AutoDetectParser implements FileParser {
 
+    private static final Logger log = LoggerFactory.getLogger(AutoDetectParser.class);
+
     private final EdifactParser edifactParser = new EdifactParser();
     private final AnsiX12Parser ansiX12Parser = new AnsiX12Parser();
     private final XmlParser xmlParser = new XmlParser();
@@ -46,17 +51,20 @@ public class AutoDetectParser implements FileParser {
         }
         String trimmed = content.stripLeading();
         if (edifactParser.canParse(trimmed)) {
+            log.debug("Detected format: EDIFACT");
             return edifactParser.parse(content);
         }
         if (ansiX12Parser.canParse(trimmed)) {
+            log.debug("Detected format: ANSI X12");
             return ansiX12Parser.parse(content);
         }
         if (xmlParser.canParse(trimmed)) {
+            log.debug("Detected format: XML");
             return xmlParser.parse(content);
         }
-        throw new ParseException(
-                "Cannot detect EDI format. Content starts with: " +
-                trimmed.substring(0, Math.min(50, trimmed.length())));
+        String preview = trimmed.substring(0, Math.min(50, trimmed.length()));
+        log.warn("Cannot detect EDI format. Content starts with: '{}'", preview);
+        throw new ParseException("Cannot detect EDI format. Content starts with: " + preview);
     }
 
     @Override

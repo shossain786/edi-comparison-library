@@ -1,0 +1,28 @@
+# EDI folder location aliases
+#
+# Maps short alias names (used in Gherkin steps) to real filesystem paths.
+# Paths can be absolute or relative to the working directory when tests run.
+#
+# Usage in feature files:
+#   When I drop below input files
+#     | SI_Min_Edifact | CU2100_Inbound |
+#   Then I verify below outbounds
+#     | Template Name  | Location                  |
+#     | SI_Min_Edifact | CA2000_304IFT_Min_Archieve |
+#
+# Update the paths below to match your actual environment.
+# Use forward slashes on all platforms (Java handles conversion).
+
+# ─── Inbound folders ──────────────────────────────────────────────────────────
+
+CU2100_Inbound: /opt/edi/inbound/cu2100
+
+# ─── Outbound / archive folders ───────────────────────────────────────────────
+
+CA2000_304IFT_Min_Archieve: /opt/edi/outbound/ca2000/304ift/archive
+
+# ─── Add more aliases as needed ───────────────────────────────────────────────
+
+# Example: Windows paths also work
+# CU2100_Inbound: C:/EDI/Inbound/CU2100
+# CA2000_304IFT_Min_Archieve: C:/EDI/Outbound/CA2000/304IFT/Archive

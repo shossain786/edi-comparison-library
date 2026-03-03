@@ -10,14 +10,15 @@ A lightweight Java library for validating EDIFACT, ANSI X12, and XML messages in
 2. [Configure](#2-configure)
 3. [Quick Start — EdiVerifier](#3-quick-start--ediverifier)
 4. [Generate Templates Automatically](#4-generate-templates-automatically)
-5. [Create a YAML Template Manually](#5-create-a-yaml-template-manually)
-6. [Advanced: Low-Level API](#6-advanced-low-level-api)
-7. [Run and View Reports](#7-run-and-view-reports)
-8. [YAML Template Reference](#8-yaml-template-reference)
-9. [Report Generation Options](#9-report-generation-options)
-10. [Combined Report](#10-combined-report)
-11. [Configuration Reference](#11-configuration-reference)
-12. [Project Structure](#12-project-structure)
+5. [Cucumber Integration](#5-cucumber-integration)
+6. [Create a YAML Template Manually](#6-create-a-yaml-template-manually)
+7. [Advanced: Low-Level API](#7-advanced-low-level-api)
+8. [Run and View Reports](#8-run-and-view-reports)
+9. [YAML Template Reference](#9-yaml-template-reference)
+10. [Report Generation Options](#10-report-generation-options)
+11. [Combined Report](#11-combined-report)
+12. [Configuration Reference](#12-configuration-reference)
+13. [Project Structure](#13-project-structure)
 
 ---
 
@@ -264,7 +265,174 @@ EdiVerifier.with("rules/my-template.yaml")
 
 ---
 
-## 5. Create a YAML Template Manually
+## 5. Cucumber Integration
+
+For teams using Cucumber BDD, the library ships ready-to-use step definitions that cover the full integration test pattern:
+
+1. Drop one or more EDI input files into an inbound folder
+2. Wait for the system under test to process them
+3. Verify that the expected outbound files were produced and match a YAML template
+
+### Built-in steps
+
+| Step | Description |
+|------|-------------|
+| `When I drop below input files` | Copies test files into the inbound folder |
+| `And I wait for {int} Sec` | Pauses for the given number of seconds |
+| `Then I verify below outbounds` | Finds new outbound files and verifies them against a YAML template |
+
+An `@After` hook automatically generates an HTML report to `target/edi-reports/` after each scenario and fails the scenario if any differences are found.
+
+### Step 1 — Create the location config
+
+Create `src/test/resources/config/edi-locations.yaml` mapping short alias names to real folder paths:
+
+```yaml
+# Inbound folders
+CU2100_Inbound:             /opt/edi/inbound/cu2100
+
+# Outbound / archive folders
+CA2000_304IFT_Min_Archieve: /opt/edi/outbound/ca2000/archive
+```
+
+> Windows paths work too: `C:/EDI/Inbound/CU2100`
+
+### Step 2 — Add test files and templates
+
+```
+src/test/resources/
+  testdata/
+    SI_Min_Edifact.edi        ← EDI files dropped in "When I drop below input files"
+  templates/
+    SI_Min_Edifact.yaml       ← YAML templates used in "Then I verify below outbounds"
+```
+
+Generate a template from a golden file if you don't have one yet:
+
+```java
+TemplateGenerator.from("samples/golden-304ift.edi")
+        .saveTo("src/test/resources/templates/SI_Min_Edifact.yaml");
+```
+
+### Step 3 — Write a feature file
+
+```gherkin
+@edi
+Feature: EDI outbound verification
+
+  Scenario: Booking creates a minimum 304 IFT outbound
+    When I drop below input files
+      | SI_Min_Edifact | CU2100_Inbound |
+    And I wait for 30 Sec
+    Then I verify below outbounds
+      | Template Name  | Location                  |
+      | SI_Min_Edifact | CA2000_304IFT_Min_Archieve |
+```
+
+**Inbound table** — no header row:
+
+| Column | Value |
+|--------|-------|
+| 1 | File name under `src/test/resources/testdata/` (with or without extension) |
+| 2 | Location alias from `config/edi-locations.yaml` |
+
+**Outbound table** — header row required:
+
+| Column | Value |
+|--------|-------|
+| `Template Name` | YAML template name under `src/test/resources/templates/` (without `.yaml`) |
+| `Location` | Location alias from `config/edi-locations.yaml` |
+
+> Only files whose last-modified timestamp is **after** the scenario started are verified — stale files from previous runs are ignored automatically.
+
+### Step 4 — Add a TestNG runner
+
+Copy [EdiCucumberRunner.java](src/test/java/com/edi/comparison/cucumber/EdiCucumberRunner.java) into your own project and adjust the paths:
+
+```java
+@CucumberOptions(
+        features = "src/test/resources/features",
+        glue     = "com.edi.comparison.cucumber",
+        plugin   = {
+                "pretty",
+                "html:target/cucumber-reports/cucumber.html",
+                "json:target/cucumber-reports/cucumber.json"
+        },
+        tags = "@edi"
+)
+public class EdiCucumberRunner extends AbstractTestNGCucumberTests { }
+```
+
+Run with:
+
+```bash
+mvn test -Dtest=EdiCucumberRunner
+
+# Run a specific tag only
+mvn test -Dtest=EdiCucumberRunner -Dcucumber.filter.tags="@smoke"
+```
+
+### Multiple files — same step
+
+Drop multiple input files in one step; verify multiple outbound templates in one step:
+
+```gherkin
+Scenario: Multiple bookings all produce outbounds
+  When I drop below input files
+    | SI_Min_Edifact_001 | CU2100_Inbound |
+    | SI_Min_Edifact_002 | CU2100_Inbound |
+  And I wait for 60 Sec
+  Then I verify below outbounds
+    | Template Name      | Location                  |
+    | SI_Min_Edifact     | CA2000_304IFT_Min_Archieve |
+    | SI_Min_Edifact_Ack | CA2000_304IFT_Min_Archieve |
+```
+
+### Custom step definitions — PicoContainer DI
+
+PicoContainer creates a fresh `EdiTestContext` for every scenario — state never leaks between tests. Inject it into your own step class alongside the built-in ones:
+
+```java
+public class MyCustomSteps {
+
+    private final EdiTestContext ctx;
+
+    public MyCustomSteps(EdiTestContext ctx) {
+        this.ctx = ctx;
+    }
+
+    @When("I send {string} to {string}")
+    public void sendToFtp(String file, String locationAlias) {
+        // custom FTP drop logic...
+        ctx.dropFile(file, locationAlias);   // then hand off to the context
+    }
+}
+```
+
+### File layout summary
+
+```
+src/test/resources/
+  config/
+    edi-locations.yaml          ← alias → folder path mapping  (required)
+  testdata/
+    SI_Min_Edifact.edi          ← EDI input files used in "When" step
+  templates/
+    SI_Min_Edifact.yaml         ← YAML templates used in "Then" step
+  features/
+    edi-verification.feature    ← Gherkin scenarios
+
+src/test/java/com/yourcompany/
+  EdiCucumberRunner.java        ← TestNG runner (copy from library)
+
+target/
+  edi-reports/                  ← HTML report per scenario  (@After hook)
+  cucumber-reports/             ← Cucumber summary HTML/JSON
+```
+
+---
+
+## 6. Create a YAML Template Manually
 
 If you prefer to write templates by hand (or edit a generated one), create them under `src/test/resources/rules/`.
 
@@ -363,7 +531,7 @@ rules:
 
 ---
 
-## 6. Advanced: Low-Level API
+## 7. Advanced: Low-Level API
 
 Use this when you need full control — custom parsers, inbound/outbound comparison, or programmatic rule building. For most use cases, prefer `EdiVerifier` (section 3).
 
@@ -476,7 +644,7 @@ ComparisonResult result = engine.compare(inbound, outbound);
 
 ---
 
-## 7. Run and View Reports
+## 8. Run and View Reports
 
 ### Run Tests
 
@@ -523,7 +691,7 @@ open target/reports/booking-test/report_20260208_143000.html
 
 ---
 
-## 8. YAML Template Reference
+## 9. YAML Template Reference
 
 ### Segment-Level Options
 
@@ -570,7 +738,7 @@ The `source` property pulls expected values dynamically:
 
 ---
 
-## 9. Report Generation Options
+## 10. Report Generation Options
 
 ```java
 HtmlReportGenerator report = new HtmlReportGenerator();
@@ -605,7 +773,7 @@ String reportPath = result.generateReport("target/reports/");
 
 ---
 
-## 10. Combined Report
+## 11. Combined Report
 
 When you have multiple test scenarios, generate a single dashboard page showing all results.
 
@@ -680,7 +848,7 @@ generator.generateCombined(scenarioResults, myWriter);
 
 ---
 
-## 11. Configuration Reference
+## 12. Configuration Reference
 
 All properties in `edi-comparison.properties`:
 
@@ -708,7 +876,7 @@ ComparisonConfig config = ComparisonConfig.fromProperties(myProperties);
 
 ---
 
-## 12. Project Structure
+## 13. Project Structure
 
 ```
 edi-comparison-library/
@@ -717,6 +885,10 @@ edi-comparison-library/
     batch/
       BatchResult.java                  ← aggregated result for folder/list verification
       FileResult.java                   ← per-file result
+    cucumber/
+      LocationRegistry.java             ← loads alias → path mappings from YAML config
+      EdiTestContext.java               ← PicoContainer scenario context (drop + verify)
+      EdiStepDefinitions.java           ← built-in Cucumber steps (When / And / Then)
     template/
       TemplateGenerator.java            ← auto-generate YAML templates from EDI files
     parser/
@@ -744,16 +916,22 @@ your-test-project/
   src/test/
     java/
       com/yourcompany/tests/
-        BookingVerificationTest.java    ← your tests
+        EdiCucumberRunner.java          ← copy from library; adjust glue/features paths
+        BookingVerificationTest.java    ← non-Cucumber tests (optional)
     resources/
+      config/
+        edi-locations.yaml              ← alias → real folder path mapping  (Cucumber)
+      testdata/
+        SI_Min_Edifact.edi              ← EDI input files used in "When" step
+      templates/
+        SI_Min_Edifact.yaml             ← YAML templates used in "Then" step
+      features/
+        edi-verification.feature        ← Gherkin scenarios
       edi-comparison.properties         ← library config (optional)
-      rules/
-        booking-template.yaml           ← YAML templates (hand-written or generated)
-      samples/
-        outbounds/
-          booking-001.edi               ← EDI files to validate
-  target/reports/                       ← generated reports (gitignore this)
-    combined_report_20260208_143000.html
+  target/
+    edi-reports/                        ← HTML report per scenario  (gitignore this)
+    cucumber-reports/                   ← Cucumber summary HTML/JSON
+    reports/                            ← non-Cucumber reports
 ```
 
 ---
@@ -769,9 +947,10 @@ your-test-project/
 | Don't have a template yet | `TemplateGenerator.from(goldenFile).saveTo(...)` |
 | Learn template from many files | `TemplateGenerator.learnFrom(folder).saveTo(...)` |
 | Mixed EDIFACT + X12 + XML in one folder | `EdiVerifier` with default `AutoDetectParser` |
-| Full control / inbound comparison | Low-level API (section 6) |
+| BDD with Cucumber (drop → wait → verify) | Section 5 — built-in step definitions |
+| Full control / inbound comparison | Low-level API (section 7) |
 
-### Quick Checklist
+### Quick Checklist — EdiVerifier
 
 1. Add the library dependency to your `pom.xml`
 2. Create `edi-comparison.properties` in `src/test/resources/` (optional)
@@ -779,3 +958,13 @@ your-test-project/
 4. Review/edit the template as needed
 5. Write a test: `EdiVerifier.with("rules/template.yaml").verifyFolder("output/").assertAllPassed()`
 6. Run `mvn test` and open the HTML report in your browser
+
+### Quick Checklist — Cucumber
+
+1. Add the library dependency to your `pom.xml`
+2. Create `src/test/resources/config/edi-locations.yaml` with your folder aliases
+3. Place EDI input files under `src/test/resources/testdata/`
+4. Generate templates: `TemplateGenerator.from("golden.edi").saveTo("src/test/resources/templates/MyTemplate.yaml")`
+5. Write a `.feature` file using the built-in steps (see section 5)
+6. Copy `EdiCucumberRunner.java` into your project and point it at your features folder
+7. Run `mvn test -Dtest=EdiCucumberRunner` and check `target/edi-reports/`

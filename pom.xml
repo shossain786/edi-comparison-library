@@ -18,12 +18,13 @@
         <maven.compiler.source>25</maven.compiler.source>
         <maven.compiler.target>25</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        
+
         <!-- Dependencies versions -->
         <jackson.version>2.15.2</jackson.version>
         <snakeyaml.version>2.0</snakeyaml.version>
         <junit.version>5.10.0</junit.version>
         <slf4j.version>2.0.7</slf4j.version>
+        <cucumber.version>7.15.0</cucumber.version>
     </properties>
 
     <dependencies>
@@ -48,11 +49,19 @@
             <version>${jackson.version}</version>
         </dependency>
 
-        <!-- Logging -->
+        <!-- Logging API — library consumers bring their own implementation -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>${slf4j.version}</version>
+        </dependency>
+
+        <!-- Logging implementation for tests only -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
+            <scope>test</scope>
         </dependency>
 
         <!-- Testing -->
@@ -74,6 +83,26 @@
             <artifactId>junit</artifactId>
             <version>4.13.1</version>
             <scope>compile</scope>
+        </dependency>
+
+        <!-- Cucumber — step definitions ship with the library so consumers can reuse them -->
+        <dependency>
+            <groupId>io.cucumber</groupId>
+            <artifactId>cucumber-java</artifactId>
+            <version>${cucumber.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.cucumber</groupId>
+            <artifactId>cucumber-picocontainer</artifactId>
+            <version>${cucumber.version}</version>
+        </dependency>
+
+        <!-- Cucumber TestNG runner — only needed when executing scenarios -->
+        <dependency>
+            <groupId>io.cucumber</groupId>
+            <artifactId>cucumber-testng</artifactId>
+            <version>${cucumber.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

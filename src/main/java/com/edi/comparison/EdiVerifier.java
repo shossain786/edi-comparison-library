@@ -11,9 +11,13 @@ import com.edi.comparison.parser.AnsiX12Parser;
 import com.edi.comparison.parser.AutoDetectParser;
 import com.edi.comparison.parser.EdifactParser;
 import com.edi.comparison.parser.FileParser;
+import com.edi.comparison.parser.ParseException;
 import com.edi.comparison.parser.XmlParser;
 import com.edi.comparison.rule.RuleLoader;
 import com.edi.comparison.rule.RuleSet;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -27,6 +31,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -100,6 +105,8 @@ import java.util.stream.Stream;
  */
 public class EdiVerifier {
 
+    private static final Logger log = LoggerFactory.getLogger(EdiVerifier.class);
+
     private final RuleSet ruleSet;
     private final FileParser parser;
     private final int parallelism;
@@ -169,15 +176,25 @@ public class EdiVerifier {
      * @throws IOException if the file cannot be read
      */
     public FileResult verify(Path filePath) throws IOException {
+        log.debug("Verifying: {}", filePath.getFileName());
         long start = System.currentTimeMillis();
         try {
             String content = Files.readString(filePath);
             com.edi.comparison.model.Message message = parser.parse(content);
             ComparisonResult result = new ComparisonEngine(ruleSet, buildContext())
                     .compare(null, message);
-            return FileResult.ofSuccess(filePath, result, System.currentTimeMillis() - start);
-        } catch (Exception e) {
-            return FileResult.ofError(filePath, e, System.currentTimeMillis() - start);
+            long ms = System.currentTimeMillis() - start;
+            if (result.isSuccess()) {
+                log.debug("  PASSED: {} ({}ms)", filePath.getFileName(), ms);
+            } else {
+                log.debug("  FAILED: {} — {} difference(s) ({}ms)",
+                        filePath.getFileName(), result.getDifferenceCount(), ms);
+            }
+            return FileResult.ofSuccess(filePath, result, ms);
+        } catch (IOException | ParseException | RuntimeException e) {
+            long ms = System.currentTimeMillis() - start;
+            log.warn("  ERROR:  {} — {} ({}ms)", filePath.getFileName(), e.getMessage(), ms);
+            return FileResult.ofError(filePath, e, ms);
         }
     }
 
@@ -204,6 +221,8 @@ public class EdiVerifier {
         if (!Files.isDirectory(directory)) {
             throw new IllegalArgumentException("Not a directory: " + directory);
         }
+        log.info("Scanning directory: {} (pattern={}, recursive={})",
+                directory, filePattern != null ? filePattern : "*", recursive);
         int depth = recursive ? Integer.MAX_VALUE : 1;
         List<Path> files;
         try (Stream<Path> stream = Files.walk(directory, depth)) {
@@ -213,6 +232,7 @@ public class EdiVerifier {
                     .sorted()
                     .collect(Collectors.toList());
         }
+        log.info("Found {} file(s) to verify", files.size());
         return verifyFiles(files);
     }
 
@@ -223,6 +243,8 @@ public class EdiVerifier {
      * @return aggregated batch result
      */
     public BatchResult verifyFiles(List<Path> files) {
+        log.info("Starting batch verification: {} file(s) using {} thread(s)",
+                files.size(), Math.min(parallelism, Math.max(1, files.size())));
         long start = System.currentTimeMillis();
         int threads = Math.min(parallelism, Math.max(1, files.size()));
         ExecutorService executor = Executors.newFixedThreadPool(threads);
@@ -237,10 +259,16 @@ public class EdiVerifier {
                 results.add(f.get());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-            } catch (Exception e) {
-                // verify() never throws — this should not happen
+                log.warn("Batch interrupted");
+            } catch (ExecutionException e) {
+                // verify() catches all errors internally — this should not happen
+                log.error("Unexpected executor error: {}", e.getMessage(), e);
             }
         }
+        long passed = results.stream().filter(FileResult::isPassed).count();
+        long failed = results.size() - passed;
+        log.info("Batch complete: {}/{} passed, {} failed in {}ms",
+                passed, results.size(), failed, System.currentTimeMillis() - start);
         return new BatchResult(results, System.currentTimeMillis() - start);
     }
 

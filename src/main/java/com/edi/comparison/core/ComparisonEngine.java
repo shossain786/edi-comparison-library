@@ -3,6 +3,9 @@ package com.edi.comparison.core;
 import com.edi.comparison.model.*;
 import com.edi.comparison.rule.*;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -34,6 +37,8 @@ import java.util.regex.Pattern;
  */
 public class ComparisonEngine {
 
+    private static final Logger log = LoggerFactory.getLogger(ComparisonEngine.class);
+
     private final RuleSet ruleSet;
     private final ComparisonContext context;
 
@@ -56,6 +61,7 @@ public class ComparisonEngine {
      * @return comparison result
      */
     public ComparisonResult compare(Message expected, Message actual) {
+        log.debug("Running comparison against {} rule(s)", ruleSet.getRuleCount());
         long startTime = System.currentTimeMillis();
 
         ComparisonResult.Builder resultBuilder = ComparisonResult.builder()
@@ -172,12 +178,19 @@ public class ComparisonEngine {
         }
 
         long endTime = System.currentTimeMillis();
-
-        return resultBuilder
+        ComparisonResult result = resultBuilder
                 .comparisonTimeMs(endTime - startTime)
                 .segmentsCompared(segmentsCompared)
                 .fieldsCompared(fieldsCompared)
                 .build();
+
+        log.debug("Comparison complete: {} segment(s), {} field(s), {} difference(s) in {}ms",
+                segmentsCompared, fieldsCompared, result.getDifferenceCount(), endTime - startTime);
+        if (result.hasDifferences()) {
+            result.getDifferences().forEach(d ->
+                    log.debug("  [{}] {}: {}", d.getType(), d.getSegmentTag(), d.getDescription()));
+        }
+        return result;
     }
 
     /**
